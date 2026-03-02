@@ -16,6 +16,7 @@ program
   .command("init")
   .description("Initialize a .my-skills directory with an example skill")
   .option("--from <source>", "Import skills from a GitHub repo (github:owner/repo)")
+  .option("--with-rules", "Also initialize the rules directory with an example rule")
   .action(initCommand);
 
 program
@@ -29,6 +30,7 @@ program
   .requiredOption("--to <platforms>", "Target platforms: claude, windsurf, or claude,windsurf")
   .option("--write", "Actually write files (default is dry-run)")
   .option("--claude-dir <dir>", "Override Claude output directory (default: .claude)")
+  .option("--sync-rules", "Also sync rules from .my-skills/rules")
   .action(syncCommand);
 
 program.parse();

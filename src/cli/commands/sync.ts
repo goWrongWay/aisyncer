@@ -3,11 +3,13 @@ import { createClaudeAdapter } from "../../adapters/claude.js";
 import { createWindsurfAdapter } from "../../adapters/windsurf.js";
 import type { PlatformAdapter } from "../../adapters/base.js";
 import { loadCanonicalSkills, planSync, executeSync } from "../../core/sync.js";
+import { loadCanonicalRules, planRuleSync, executeRuleSync } from "../../core/sync-rules.js";
 
 interface SyncOptions {
   to: string;
   write?: boolean;
   claudeDir?: string;
+  syncRules?: boolean;
 }
 
 const SUPPORTED_PLATFORMS = ["claude", "windsurf"];
@@ -26,14 +28,6 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
     }
   }
 
-  const skillsDir = path.resolve(".my-skills", "skills");
-  const skills = loadCanonicalSkills(skillsDir);
-
-  if (skills.length === 0) {
-    console.log("No valid skills found in .my-skills/skills. Run 'aisyncer init' first.");
-    return;
-  }
-
   const dryRun = !options.write;
   if (dryRun) {
     console.log("[dry-run] No files will be written. Use --write to apply changes.\n");
@@ -41,23 +35,60 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
 
   let hasChanges = false;
 
-  for (const platform of platforms) {
-    const adapter = resolveAdapter(platform, options);
-    console.log(`Syncing to ${adapter.name}...`);
+  // Sync skills
+  const skillsDir = path.resolve(".my-skills", "skills");
+  const skills = loadCanonicalSkills(skillsDir);
 
-    const actions = planSync(skills, adapter);
+  if (skills.length > 0) {
+    for (const platform of platforms) {
+      const adapter = resolveAdapter(platform, options);
+      console.log(`Syncing skills to ${adapter.name}...`);
 
-    for (const action of actions) {
-      const label = actionLabel(action.action);
-      console.log(`  ${label} ${action.skillId} → ${action.targetPath}`);
-      if (action.action !== "skip") hasChanges = true;
+      const actions = planSync(skills, adapter);
+
+      for (const action of actions) {
+        const label = actionLabel(action.action);
+        console.log(`  ${label} ${action.skillId} → ${action.targetPath}`);
+        if (action.action !== "skip") hasChanges = true;
+      }
+
+      if (!dryRun) {
+        executeSync(skills, actions, adapter);
+      }
+
+      console.log();
     }
+  } else {
+    console.log("No valid skills found in .my-skills/skills.");
+  }
 
-    if (!dryRun) {
-      executeSync(skills, actions, adapter);
+  // Sync rules if requested
+  if (options.syncRules) {
+    const rulesDir = path.resolve(".my-skills", "rules");
+    const rules = loadCanonicalRules(rulesDir);
+
+    if (rules.length > 0) {
+      for (const platform of platforms) {
+        const adapter = resolveAdapter(platform, options);
+        console.log(`Syncing rules to ${adapter.name}...`);
+
+        const actions = planRuleSync(rules, adapter);
+
+        for (const action of actions) {
+          const label = actionLabel(action.action);
+          console.log(`  ${label} ${action.ruleId} → ${action.targetPath}`);
+          if (action.action !== "skip") hasChanges = true;
+        }
+
+        if (!dryRun) {
+          executeRuleSync(rules, actions, adapter);
+        }
+
+        console.log();
+      }
+    } else {
+      console.log("No valid rules found in .my-skills/rules.");
     }
-
-    console.log();
   }
 
   if (dryRun && hasChanges) {

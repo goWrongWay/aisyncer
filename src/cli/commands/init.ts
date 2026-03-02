@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { emitSkill } from "../../core/parser.js";
+import { emitSkill, emitRule } from "../../core/parser.js";
 import { parseSkill } from "../../core/parser.js";
 import { validateSkill } from "../../core/schema.js";
-import type { SkillSpec } from "../../core/schema.js";
+import type { SkillSpec, RuleSpec } from "../../core/schema.js";
 import { fetchSkillsFromGitHub } from "../../github/fetch.js";
 
 const EXAMPLE_SKILL: SkillSpec = {
@@ -26,9 +26,34 @@ You are a helpful assistant. Follow the user's instructions carefully.
   },
 };
 
-export async function initCommand(options: { from?: string }): Promise<void> {
+const EXAMPLE_RULE: RuleSpec = {
+  schemaVersion: 1,
+  id: "example-rule",
+  name: "Example Rule",
+  description: "An example rule to get you started",
+  content: `# Example Rule
+
+This is an example rule that demonstrates how to write rules for AI assistants.
+
+## When to Apply
+
+- Use this rule as a template for creating new rules
+- Follow the structure shown here
+
+## Guidelines
+
+- Keep rules concise and focused
+- Use clear examples where appropriate`,
+  metadata: {
+    version: "1.0.0",
+    tags: ["example"],
+  },
+};
+
+export async function initCommand(options: { from?: string; withRules?: boolean }): Promise<void> {
   const baseDir = path.resolve(".my-skills");
   const skillsDir = path.join(baseDir, "skills");
+  const rulesDir = path.join(baseDir, "rules");
 
   if (fs.existsSync(baseDir)) {
     console.log(".my-skills directory already exists. Skipping init.");
@@ -38,11 +63,12 @@ export async function initCommand(options: { from?: string }): Promise<void> {
   if (options.from) {
     await initFromGitHub(options.from, skillsDir);
   } else {
-    initLocal(skillsDir);
+    initLocal(skillsDir, rulesDir, options.withRules ?? false);
   }
 }
 
-function initLocal(skillsDir: string): void {
+function initLocal(skillsDir: string, rulesDir: string, withRules: boolean): void {
+  // Create example skill
   const exampleDir = path.join(skillsDir, EXAMPLE_SKILL.id);
   const skillFile = path.join(exampleDir, "SKILL.md");
 
@@ -51,6 +77,18 @@ function initLocal(skillsDir: string): void {
 
   console.log("Initialized .my-skills with example skill:");
   console.log(`  ${skillFile}`);
+
+  // Create example rule if requested
+  if (withRules) {
+    const exampleRuleDir = path.join(rulesDir, EXAMPLE_RULE.id);
+    const ruleFile = path.join(exampleRuleDir, "RULE.md");
+
+    fs.mkdirSync(exampleRuleDir, { recursive: true });
+    fs.writeFileSync(ruleFile, emitRule(EXAMPLE_RULE), "utf-8");
+
+    console.log("\nInitialized rules with example rule:");
+    console.log(`  ${ruleFile}`);
+  }
 }
 
 async function initFromGitHub(source: string, skillsDir: string): Promise<void> {

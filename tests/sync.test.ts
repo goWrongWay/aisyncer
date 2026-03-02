@@ -1,0 +1,245 @@
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import { loadCanonicalSkills, planSync, executeSync } from "../src/core/sync.js";
+import { createAdapter } from "../src/adapters/base.js";
+import { emitSkill } from "../src/core/parser.js";
+import type { SkillSpec } from "../src/core/schema.js";
+
+const SKILL_A: SkillSpec = {
+  schemaVersion: 1,
+  id: "skill-a",
+  name: "Skill A",
+  description: "First skill",
+  content: "# Skill A\n\nContent A.",
+};
+
+const SKILL_B: SkillSpec = {
+  schemaVersion: 1,
+  id: "skill-b",
+  name: "Skill B",
+  description: "Second skill",
+  content: "# Skill B\n\nContent B.",
+};
+
+function writeCanonicalSkill(baseDir: string, skill: SkillSpec): void {
+  const dir = path.join(baseDir, skill.id);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "SKILL.md"), emitSkill(skill), "utf-8");
+}
+
+describe("loadCanonicalSkills", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sync-test-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns empty array for non-existent directory", () => {
+    const skills = loadCanonicalSkills(path.join(tmpDir, "nope"));
+    expect(skills).toEqual([]);
+  });
+
+  it("loads valid skills from directory", () => {
+    writeCanonicalSkill(tmpDir, SKILL_A);
+    writeCanonicalSkill(tmpDir, SKILL_B);
+    const skills = loadCanonicalSkills(tmpDir);
+    expect(skills).toHaveLength(2);
+    const ids = skills.map((s) => s.id).sort();
+    expect(ids).toEqual(["skill-a", "skill-b"]);
+  });
+
+  it("skips invalid skills", () => {
+    writeCanonicalSkill(tmpDir, SKILL_A);
+    const badDir = path.join(tmpDir, "bad-skill");
+    fs.mkdirSync(badDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(badDir, "SKILL.md"),
+      "---\nschemaVersion: 1\nid: bad-skill\ndescription: no name\n---\n\nContent",
+      "utf-8",
+    );
+    const skills = loadCanonicalSkills(tmpDir);
+    expect(skills).toHaveLength(1);
+    expect(skills[0].id).toBe("skill-a");
+  });
+
+  it("does not crash on corrupted frontmatter", () => {
+    writeCanonicalSkill(tmpDir, SKILL_A);
+    const badDir = path.join(tmpDir, "corrupt");
+    fs.mkdirSync(badDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(badDir, "SKILL.md"),
+      "---\n: invalid: yaml: {{{\n---\n\nstuff",
+      "utf-8",
+    );
+    const skills = loadCanonicalSkills(tmpDir);
+    expect(skills).toHaveLength(1);
+    expect(skills[0].id).toBe("skill-a");
+  });
+});
+
+describe("planSync", () => {
+  let targetDir: string;
+
+  beforeEach(() => {
+    targetDir = fs.mkdtempSync(path.join(os.tmpdir(), "plan-sync-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(targetDir, { recursive: true, force: true });
+  });
+
+  it("plans ADD when target does not exist", () => {
+    const adapter = createAdapter("test", targetDir);
+    const actions = planSync([SKILL_A], adapter);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].action).toBe("add");
+    expect(actions[0].skillId).toBe("skill-a");
+  });
+
+  it("plans SKIP when full skill hash matches", () => {
+    const adapter = createAdapter("test", targetDir);
+    adapter.writeSkill(SKILL_A);
+
+    const actions = planSync([SKILL_A], adapter);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].action).toBe("skip");
+  });
+
+  it("plans OVERWRITE when content differs", () => {
+    const adapter = createAdapter("test", targetDir);
+    adapter.writeSkill(SKILL_A);
+
+    const modifiedA: SkillSpec = { ...SKILL_A, content: "# Modified content" };
+    const actions = planSync([modifiedA], adapter);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].action).toBe("overwrite");
+  });
+
+  it("plans OVERWRITE when name differs but content is same", () => {
+    const adapter = createAdapter("test", targetDir);
+    adapter.writeSkill(SKILL_A);
+
+    const renamedA: SkillSpec = { ...SKILL_A, name: "Renamed Skill A" };
+    const actions = planSync([renamedA], adapter);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].action).toBe("overwrite");
+  });
+
+  it("plans OVERWRITE when description differs but content is same", () => {
+    const adapter = createAdapter("test", targetDir);
+    adapter.writeSkill(SKILL_A);
+
+    const modified: SkillSpec = { ...SKILL_A, description: "New description" };
+    const actions = planSync([modified], adapter);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].action).toBe("overwrite");
+  });
+
+  it("plans OVERWRITE when allowedTools differs", () => {
+    const adapter = createAdapter("test", targetDir);
+    adapter.writeSkill(SKILL_A);
+
+    const modified: SkillSpec = { ...SKILL_A, allowedTools: ["Bash"] };
+    const actions = planSync([modified], adapter);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].action).toBe("overwrite");
+  });
+
+  it("plans OVERWRITE when metadata differs", () => {
+    const adapter = createAdapter("test", targetDir);
+    adapter.writeSkill(SKILL_A);
+
+    const modified: SkillSpec = { ...SKILL_A, metadata: { version: "9.9.9" } };
+    const actions = planSync([modified], adapter);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].action).toBe("overwrite");
+  });
+
+  it("handles multiple skills with mixed actions", () => {
+    const adapter = createAdapter("test", targetDir);
+    adapter.writeSkill(SKILL_A);
+
+    const actions = planSync([SKILL_A, SKILL_B], adapter);
+
+    expect(actions).toHaveLength(2);
+    const aAction = actions.find((a) => a.skillId === "skill-a");
+    const bAction = actions.find((a) => a.skillId === "skill-b");
+    expect(aAction?.action).toBe("skip");
+    expect(bAction?.action).toBe("add");
+  });
+
+  it("plans ADD when target has corrupted frontmatter", () => {
+    const adapter = createAdapter("test", targetDir);
+    // Write a corrupted file in the target
+    const corruptDir = path.join(targetDir, "skills", SKILL_A.id);
+    fs.mkdirSync(corruptDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(corruptDir, "SKILL.md"),
+      "not even close to valid yaml frontmatter {{{",
+      "utf-8",
+    );
+
+    const actions = planSync([SKILL_A], adapter);
+    expect(actions).toHaveLength(1);
+    // readSkill returns null for corrupt files, so this is "add"
+    expect(actions[0].action).toBe("add");
+  });
+});
+
+describe("executeSync", () => {
+  let targetDir: string;
+
+  beforeEach(() => {
+    targetDir = fs.mkdtempSync(path.join(os.tmpdir(), "exec-sync-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(targetDir, { recursive: true, force: true });
+  });
+
+  it("writes skills for add actions", () => {
+    const adapter = createAdapter("test", targetDir);
+    const actions = planSync([SKILL_A, SKILL_B], adapter);
+
+    executeSync([SKILL_A, SKILL_B], actions, adapter);
+
+    expect(adapter.readSkill("skill-a")).not.toBeNull();
+    expect(adapter.readSkill("skill-b")).not.toBeNull();
+  });
+
+  it("does not write for skip actions", () => {
+    const adapter = createAdapter("test", targetDir);
+    adapter.writeSkill(SKILL_A);
+
+    const filePath = adapter.skillPath(SKILL_A.id);
+    const mtimeBefore = fs.statSync(filePath).mtimeMs;
+
+    const actions = planSync([SKILL_A], adapter);
+    expect(actions[0].action).toBe("skip");
+
+    executeSync([SKILL_A], actions, adapter);
+
+    const mtimeAfter = fs.statSync(filePath).mtimeMs;
+    expect(mtimeAfter).toBe(mtimeBefore);
+  });
+
+  it("overwrites when content differs", () => {
+    const adapter = createAdapter("test", targetDir);
+    adapter.writeSkill(SKILL_A);
+
+    const modifiedA: SkillSpec = { ...SKILL_A, content: "# Updated content\n\nNew text." };
+    const actions = planSync([modifiedA], adapter);
+    expect(actions[0].action).toBe("overwrite");
+
+    executeSync([modifiedA], actions, adapter);
+
+    const read = adapter.readSkill("skill-a");
+    expect(read?.content).toBe("# Updated content\n\nNew text.");
+  });
+});

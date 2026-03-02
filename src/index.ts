@@ -1,0 +1,13 @@
+export { SkillSpecSchema, validateSkill } from "./core/schema.js";
+export type { SkillSpec } from "./core/schema.js";
+export { parseSkill, emitSkill } from "./core/parser.js";
+export { hashSkill } from "./core/hash.js";
+export { validateSkillsDir } from "./core/validator.js";
+export type { ValidationResult } from "./core/validator.js";
+export { loadCanonicalSkills, planSync, executeSync } from "./core/sync.js";
+export { createAdapter } from "./adapters/base.js";
+export type { PlatformAdapter, SyncAction } from "./adapters/base.js";
+export { createClaudeAdapter } from "./adapters/claude.js";
+export { createWindsurfAdapter } from "./adapters/windsurf.js";
+export { fetchSkillsFromGitHub, parseGitHubSource } from "./github/fetch.js";
+export type { GitHubSkillFile, FetchResult } from "./github/fetch.js";

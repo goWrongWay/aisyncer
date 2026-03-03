@@ -131,4 +131,22 @@ describe("createWindsurfAdapter", () => {
     adapter.writeResource(SAMPLE_SKILL, skillConfig);
     expect(fs.existsSync(path.join(tmpDir, "skills", SAMPLE_SKILL.id, "SKILL.md"))).toBe(true);
   });
+
+  it("stores rules as flat markdown files under .windsurf/rules", () => {
+    const adapter = createWindsurfAdapter(tmpDir);
+    adapter.writeResource(SAMPLE_RULE, ruleConfig);
+
+    const expectedPath = path.join(tmpDir, "rules", `${SAMPLE_RULE.id}.md`);
+    expect(fs.existsSync(expectedPath)).toBe(true);
+
+    const read = adapter.readResource(SAMPLE_RULE.id, ruleConfig);
+    expect(read).not.toBeNull();
+    expect(read!.id).toBe(SAMPLE_RULE.id);
+  });
+
+  it("resourcePath returns flat rules path for windsurf", () => {
+    const adapter = createWindsurfAdapter(tmpDir);
+    const p = adapter.resourcePath("my-rule", ruleConfig);
+    expect(p).toBe(path.join(tmpDir, "rules", "my-rule.md"));
+  });
 });

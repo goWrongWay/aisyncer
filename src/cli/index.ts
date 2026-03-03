@@ -27,11 +27,11 @@ program
 
 program
   .command("sync")
-  .description("Sync skills and rules to platform directories (Claude, Windsurf)")
+  .description("Sync skills to platform directories and rules to Windsurf")
   .requiredOption("--to <platforms>", "Target platforms: claude, windsurf, or claude,windsurf")
   .option("--write", "Actually write files (default is dry-run)")
   .option("--claude-dir <dir>", "Override Claude output directory (default: .claude)")
-  .option("--sync-rules", "Also sync rules from .my-ai/rules")
+  .option("--sync-rules", "Also sync rules from .my-ai/rules to Windsurf (.windsurf/rules/*.md)")
   .action(syncCommand);
 
 program.parse();

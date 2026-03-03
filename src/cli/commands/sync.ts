@@ -14,6 +14,7 @@ interface SyncOptions {
 }
 
 const SUPPORTED_PLATFORMS = ["claude", "windsurf"];
+const RULE_SYNC_PLATFORMS = new Set(["windsurf"]);
 
 export async function syncCommand(options: SyncOptions): Promise<void> {
   if (!options.to) {
@@ -36,12 +37,20 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
     ? loadCanonicalRules(path.resolve(".my-ai", "rules"))
     : [];
 
+  const hasRuleTarget = platforms.some((p) => RULE_SYNC_PLATFORMS.has(p));
+
   if (skills.length === 0 && rules.length === 0) {
     if (options.syncRules) {
       console.log("No valid skills or rules found in .my-ai. Run 'aisyncer init' first.");
     } else {
       console.log("No valid skills found in .my-ai/skills. Run 'aisyncer init' first.");
     }
+    return;
+  }
+
+  if (options.syncRules && rules.length > 0 && skills.length === 0 && !hasRuleTarget) {
+    console.log("No supported rules target selected. Rules sync currently targets windsurf (.windsurf/rules/*.md) only.");
+    console.log("Claude uses CLAUDE.md for project instructions.");
     return;
   }
 
@@ -72,6 +81,12 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
 
     // Sync rules
     if (rules.length > 0) {
+      if (!RULE_SYNC_PLATFORMS.has(platform)) {
+        console.log(`Skipping rules for ${adapter.name}: use CLAUDE.md for project instructions.`);
+        console.log();
+        continue;
+      }
+
       console.log(`Syncing rules to ${adapter.name}...`);
       const actions = planRuleSync(rules, adapter);
       for (const action of actions) {

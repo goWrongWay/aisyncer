@@ -3,11 +3,14 @@ import { createClaudeAdapter } from "../../adapters/claude.js";
 import { createWindsurfAdapter } from "../../adapters/windsurf.js";
 import type { PlatformAdapter } from "../../adapters/base.js";
 import { loadCanonicalSkills, planSync, executeSync } from "../../core/sync.js";
+import { loadCanonicalRules, planRuleSync, executeRuleSync } from "../../core/sync.js";
+
 
 interface SyncOptions {
   to: string;
   write?: boolean;
   claudeDir?: string;
+  syncRules?: boolean;
 }
 
 const SUPPORTED_PLATFORMS = ["claude", "windsurf"];
@@ -29,7 +32,11 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
   const skillsDir = path.resolve(".my-skills", "skills");
   const skills = loadCanonicalSkills(skillsDir);
 
-  if (skills.length === 0) {
+  const rules = options.syncRules
+    ? loadCanonicalRules(path.resolve(".my-skills", "rules"))
+    : [];
+
+  if (skills.length === 0 && rules.length === 0) {
     console.log("No valid skills found in .my-skills/skills. Run 'aisyncer init' first.");
     return;
   }
@@ -43,21 +50,36 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
 
   for (const platform of platforms) {
     const adapter = resolveAdapter(platform, options);
-    console.log(`Syncing to ${adapter.name}...`);
 
-    const actions = planSync(skills, adapter);
-
-    for (const action of actions) {
-      const label = actionLabel(action.action);
-      console.log(`  ${label} ${action.skillId} → ${action.targetPath}`);
-      if (action.action !== "skip") hasChanges = true;
+    // Sync skills
+    if (skills.length > 0) {
+      console.log(`Syncing skills to ${adapter.name}...`);
+      const actions = planSync(skills, adapter);
+      for (const action of actions) {
+        const label = actionLabel(action.action);
+        console.log(`  ${label} ${action.id} → ${action.targetPath}`);
+        if (action.action !== "skip") hasChanges = true;
+      }
+      if (!dryRun) {
+        executeSync(skills, actions, adapter);
+      }
+      console.log();
     }
 
-    if (!dryRun) {
-      executeSync(skills, actions, adapter);
+    // Sync rules
+    if (rules.length > 0) {
+      console.log(`Syncing rules to ${adapter.name}...`);
+      const actions = planRuleSync(rules, adapter);
+      for (const action of actions) {
+        const label = actionLabel(action.action);
+        console.log(`  ${label} ${action.id} → ${action.targetPath}`);
+        if (action.action !== "skip") hasChanges = true;
+      }
+      if (!dryRun) {
+        executeRuleSync(rules, actions, adapter);
+      }
+      console.log();
     }
-
-    console.log();
   }
 
   if (dryRun && hasChanges) {

@@ -99,7 +99,7 @@ describe("planSync", () => {
     const actions = planSync([SKILL_A], adapter);
     expect(actions).toHaveLength(1);
     expect(actions[0].action).toBe("add");
-    expect(actions[0].skillId).toBe("skill-a");
+    expect(actions[0].id).toBe("skill-a");
   });
 
   it("plans SKIP when full skill hash matches", () => {
@@ -168,8 +168,8 @@ describe("planSync", () => {
     const actions = planSync([SKILL_A, SKILL_B], adapter);
 
     expect(actions).toHaveLength(2);
-    const aAction = actions.find((a) => a.skillId === "skill-a");
-    const bAction = actions.find((a) => a.skillId === "skill-b");
+    const aAction = actions.find((a) => a.id === "skill-a");
+    const bAction = actions.find((a) => a.id === "skill-b");
     expect(aAction?.action).toBe("skip");
     expect(bAction?.action).toBe("add");
   });

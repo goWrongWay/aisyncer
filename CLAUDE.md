@@ -7,6 +7,14 @@ This file provides canonical guidance for AI coding tools working with this repo
 - Before proposing architecture or writing code, read `docs/ai-architecture-guardrails.md`.
 - Treat that document as the default guardrail for extensibility and AI collaboration patterns in this repo.
 
+## Collaboration Policy
+
+- Never commit directly to `main`; use a topic branch and open a PR.
+- Before commit, run `npm run typecheck && npm run lint && npm test`.
+- If `package.json` changes, update `package-lock.json` in the same PR.
+- Keep `README.md` and `README.zh-CN.md` synchronized when either changes.
+- Do not write rules to `.claude/rules`; Claude project instructions belong in `CLAUDE.md`.
+
 ## Commands
 
 ```bash
@@ -26,7 +34,9 @@ npx vitest run --grep "plans ADD"
 
 ## Architecture
 
-One-way sync tool: `.my-ai/<type>/<id>/<TYPE>.md` → platform directories (`.claude/<type>/`, `.windsurf/<type>/`).
+One-way sync tool:
+- Skills: `.my-ai/skills/<id>/SKILL.md` → `.claude/skills/<id>/SKILL.md` and `.windsurf/skills/<id>/SKILL.md`
+- Rules: `.my-ai/rules/<id>/RULE.md` → `.windsurf/rules/<id>.md` (Claude rules are managed via `CLAUDE.md`)
 
 Supports multiple resource types (skills, rules) via a generic `ResourceConfig<T>` system. Adding a new resource type does NOT require changing `resource.ts`, `PlatformAdapter`, or any generic infrastructure — only a new schema + config + CLI wiring.
 
@@ -52,9 +62,9 @@ Convenience wrappers exist per type: `parseSkill()`, `hashRule()`, `planSync()`,
 - **`core/validator.ts`** — `validateSkillsDir()` / `validateRulesDir()` → `validateResourceDir()` with respective configs.
 - **`core/sync.ts`** — `loadCanonicalSkills()` / `loadCanonicalRules()`, `planSync()` / `planRuleSync()`, `executeSync()` / `executeRuleSync()`. All delegate to generic resource functions.
 - **`adapters/base.ts`** — `PlatformAdapter` interface with 3 generic methods: `resourcePath()`, `readResource()`, `writeResource()`. `createAdapter()` factory implements all via `ResourceConfig.dirName` + `ResourceConfig.fileName`. No resource-type-specific code.
-- **`adapters/claude.ts`** / **`windsurf.ts`** — Thin wrappers calling `createAdapter()` with platform-specific base dir.
-- **`github/fetch.ts`** — `parseGitHubSource()` handles `github:owner/repo`, `github:owner/repo.git`, full URLs. `fetchSkillsFromGitHub()` uses tree API + blob API, no git clone. Falls back from `main` to `master`.
-- **`cli/commands/`** — `init` (`--with-rules`), `validate` (`--with-rules`), `sync` (`--sync-rules`, dry-run default, `--write` to apply).
+- **`adapters/claude.ts`** / **`windsurf.ts`** — Platform adapters; Windsurf rules use flat `.windsurf/rules/<id>.md` paths.
+- **`github/fetch.ts`** — `parseGitHubSource()` handles `github:owner/repo`, `github:owner/repo.git`, full URLs. `fetchFromGitHub()` uses tree API + blob API, no git clone. Falls back from `main` to `master`.
+- **`cli/commands/`** — `init` (`--with-rules`), `validate` (`--with-rules`), `sync` (`--sync-rules` for Windsurf rules, dry-run default, `--write` to apply).
 
 ### Adding a new resource type
 
@@ -78,3 +88,4 @@ No changes needed to `resource.ts` or `adapters/base.ts`.
 - Tests use `fs.mkdtempSync()` + cleanup in `afterEach()`, fixtures in `tests/fixtures/`
 - Corrupt files in target → `readResource()` returns `null` → treated as ADD (self-healing)
 - `emitResource()` uses `yaml.stringify(..., { lineWidth: 0 })` to avoid line wrapping
+- Claude has no `.claude/rules` target; keep project instructions in `CLAUDE.md`

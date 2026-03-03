@@ -10,7 +10,7 @@ const program = new Command();
 program
   .name("aisyncer")
   .description("CLI tool for syncing AI skills, rules, and configs across Claude and Windsurf")
-  .version("0.2.0");
+  .version("0.2.1");
 
 program
   .command("init")

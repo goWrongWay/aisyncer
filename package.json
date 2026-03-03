@@ -1,6 +1,6 @@
 {
   "name": "aisyncer",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "CLI tool for syncing AI skills, rules, and configs across Claude and Windsurf",
   "repository": {
     "type": "git",

@@ -31,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           BASE="${{ github.base_ref }}"
-          git fetch origin "$BASE" --depth=1
+          git fetch origin "$BASE"
           REGEX='^(feat|fix|perf|test|docs|refactor|build|ci|chore|revert|rename)(\([A-Za-z0-9 _/-]+\))?!?: [^ ].+[^.]$'
           while IFS= read -r SUBJECT; do
             if [[ ! "$SUBJECT" =~ $REGEX ]]; then
@@ -46,7 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           BASE="${{ github.base_ref }}"
-          git fetch origin "$BASE" --depth=1
+          git fetch origin "$BASE"
           CHANGED="$(git diff --name-only "origin/$BASE...HEAD")"
 
           if echo "$CHANGED" | grep -qx "package.json"; then

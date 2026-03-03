@@ -13,21 +13,29 @@
 ## Architecture Checklist
 
 - [ ] I used interface-first design (types/contracts before logic).
-- [ ] I avoided resource-type branching in core orchestrators.
-- [ ] Extension points use registration/strategy style (when applicable).
-- [ ] New resource support can be added without editing core sync loops.
+- [ ] I followed existing architecture conventions (see `CLAUDE.md`).
+- [ ] I avoided broad copy-paste branching in orchestration paths.
 - [ ] Existing behavior changes are intentional and documented.
 
-## Registry Checklist (If Resource Logic Changed)
+## Collaboration Checklist
 
-- [ ] Registry entries are complete for every supported resource type.
-- [ ] Compile-time typing catches missing handlers (`satisfies Record<...>` or equivalent).
+- [ ] I did not commit directly to `main`.
+- [ ] If `package.json` changed, `package-lock.json` is included.
+- [ ] If one README language changed, both `README.md` and `README.zh-CN.md` were updated.
+- [ ] Platform path behavior is preserved (`.windsurf/rules/<id>.md`, no `.claude/rules`).
 
 ## Validation
 
 - [ ] `npm run typecheck`
 - [ ] `npm run lint`
 - [ ] `npm test`
+
+## AI Change Report
+
+- What changed:
+- Why:
+- Risk:
+- Rollback plan:
 
 ## Notes For Reviewers
 

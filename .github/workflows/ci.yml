@@ -7,7 +7,67 @@ on:
     branches: [main]
 
 jobs:
+  guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR title format
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          TITLE="${{ github.event.pull_request.title }}"
+          REGEX='^(feat|fix|perf|test|docs|refactor|build|ci|chore|revert)(\([A-Za-z0-9 _/-]+\))?!?: [A-Z].+[^.]$'
+          if [[ ! "$TITLE" =~ $REGEX ]]; then
+            echo "Invalid PR title: $TITLE"
+            echo "Expected format: <type>(<scope>): <Summary>"
+            exit 1
+          fi
+
+      - name: Check commit subject format
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          BASE="${{ github.base_ref }}"
+          git fetch origin "$BASE" --depth=1
+          REGEX='^(feat|fix|perf|test|docs|refactor|build|ci|chore|revert)(\([A-Za-z0-9 _/-]+\))?!?: [A-Z].+[^.]$'
+          while IFS= read -r SUBJECT; do
+            if [[ ! "$SUBJECT" =~ $REGEX ]]; then
+              echo "Invalid commit subject: $SUBJECT"
+              echo "Expected format: <type>(<scope>): <Summary>"
+              exit 1
+            fi
+          done < <(git log --format=%s "origin/$BASE..HEAD")
+
+      - name: Check lockfile and bilingual docs sync
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          BASE="${{ github.base_ref }}"
+          git fetch origin "$BASE" --depth=1
+          CHANGED="$(git diff --name-only "origin/$BASE...HEAD")"
+
+          if echo "$CHANGED" | grep -qx "package.json"; then
+            if ! echo "$CHANGED" | grep -qx "package-lock.json"; then
+              echo "package-lock.json must be updated when package.json changes."
+              exit 1
+            fi
+          fi
+
+          README_EN_CHANGED=0
+          README_ZH_CHANGED=0
+          echo "$CHANGED" | grep -qx "README.md" && README_EN_CHANGED=1 || true
+          echo "$CHANGED" | grep -qx "README.zh-CN.md" && README_ZH_CHANGED=1 || true
+
+          if [[ "$README_EN_CHANGED" -ne "$README_ZH_CHANGED" ]]; then
+            echo "README.md and README.zh-CN.md must be updated together."
+            exit 1
+          fi
+
   ci:
+    needs: guardrails
     runs-on: ubuntu-latest
     strategy:
       matrix:

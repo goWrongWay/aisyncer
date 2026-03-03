@@ -7,6 +7,14 @@ This file provides canonical guidance for AI coding tools working with this repo
 - Before proposing architecture or writing code, read `docs/ai-architecture-guardrails.md`.
 - Treat that document as the default guardrail for extensibility and AI collaboration patterns in this repo.
 
+## Collaboration Policy
+
+- Never commit directly to `main`; use a topic branch and open a PR.
+- Before commit, run `npm run typecheck && npm run lint && npm test`.
+- If `package.json` changes, update `package-lock.json` in the same PR.
+- Keep `README.md` and `README.zh-CN.md` synchronized when either changes.
+- Do not write rules to `.claude/rules`; Claude project instructions belong in `CLAUDE.md`.
+
 ## Commands
 
 ```bash

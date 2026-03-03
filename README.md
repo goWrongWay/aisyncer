@@ -1,5 +1,8 @@
 # aisyncer
 
+[![npm version](https://img.shields.io/npm/v/aisyncer.svg)](https://www.npmjs.com/package/aisyncer)
+[npm package](https://www.npmjs.com/package/aisyncer)
+
 CLI tool for syncing AI skills, rules, and configs across Claude and Windsurf.
 
 **The problem:** You use Claude Code and Windsurf (maybe more tools tomorrow). Each has its own skills directory, its own format quirks, its own way of doing things. You end up copy-pasting markdown files between `.claude/skills/` and `.windsurf/skills/`, hoping you didn't forget one. It gets old fast.

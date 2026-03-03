@@ -2,6 +2,14 @@
   "name": "aisyncer",
   "version": "0.2.0",
   "description": "CLI tool for syncing AI skills, rules, and configs across Claude and Windsurf",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/goWrongWay/aisyncer.git"
+  },
+  "homepage": "https://github.com/goWrongWay/aisyncer#readme",
+  "bugs": {
+    "url": "https://github.com/goWrongWay/aisyncer/issues"
+  },
   "type": "module",
   "bin": {
     "aisyncer": "./dist/cli/index.js"

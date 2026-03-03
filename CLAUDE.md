@@ -1,6 +1,11 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides canonical guidance for AI coding tools working with this repository.
+
+## Required Reading
+
+- Before proposing architecture or writing code, read `docs/ai-architecture-guardrails.md`.
+- Treat that document as the default guardrail for extensibility and AI collaboration patterns in this repo.
 
 ## Commands
 

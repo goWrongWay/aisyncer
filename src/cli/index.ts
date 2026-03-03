@@ -10,12 +10,12 @@ const program = new Command();
 program
   .name("aisyncer")
   .description("CLI tool for syncing AI skills, rules, and configs across Claude and Windsurf")
-  .version("0.1.0");
+  .version("0.2.0");
 
 program
   .command("init")
   .description("Initialize a .my-ai directory with an example skill")
-  .option("--from <source>", "Import skills from a GitHub repo (github:owner/repo)")
+  .option("--from <source>", "Import skills and rules from a GitHub repo (github:owner/repo)")
   .option("--with-rules", "Also initialize the rules directory with an example rule")
   .action(initCommand);
 

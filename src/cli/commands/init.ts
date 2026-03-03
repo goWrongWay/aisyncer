@@ -1,10 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { emitSkill, emitRule } from "../../core/parser.js";
-import { parseSkill } from "../../core/parser.js";
-import { validateSkill } from "../../core/schema.js";
+import { emitSkill, emitRule, parseSkill, parseRule } from "../../core/parser.js";
+import { validateSkill, validateRule } from "../../core/schema.js";
 import type { SkillSpec, RuleSpec } from "../../core/schema.js";
-import { fetchSkillsFromGitHub } from "../../github/fetch.js";
+import { fetchFromGitHub } from "../../github/fetch.js";
 
 const EXAMPLE_SKILL: SkillSpec = {
   schemaVersion: 1,
@@ -91,15 +90,16 @@ function initLocal(skillsDir: string, withRules: boolean): void {
 
 async function initFromGitHub(source: string, skillsDir: string): Promise<void> {
   const token = process.env.GITHUB_TOKEN;
+  const rulesDir = path.join(path.dirname(skillsDir), "rules");
 
-  console.log(`Fetching skills from ${source}...`);
+  console.log(`Fetching resources from ${source}...`);
   if (token) {
     console.log("Using GITHUB_TOKEN for authentication.");
   }
 
   let result;
   try {
-    result = await fetchSkillsFromGitHub(source, token);
+    result = await fetchFromGitHub(source, token);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`Error: ${msg}`);
@@ -110,27 +110,29 @@ async function initFromGitHub(source: string, skillsDir: string): Promise<void> 
     console.warn(`Warning: ${warning}`);
   }
 
-  if (result.skills.length === 0) {
-    console.error("No skills were fetched. Aborting init.");
+  if (result.skills.length === 0 && result.rules.length === 0) {
+    console.error("No skills or rules were fetched. Aborting init.");
     process.exit(1);
   }
 
-  let written = 0;
+  let skillsWritten = 0;
+  let rulesWritten = 0;
   const validationErrors: string[] = [];
 
+  // Write skills
   for (const remote of result.skills) {
     let skill: SkillSpec;
     try {
       skill = parseSkill(remote.content);
     } catch {
-      validationErrors.push(`${remote.id}: Failed to parse frontmatter`);
+      validationErrors.push(`skill ${remote.id}: Failed to parse frontmatter`);
       continue;
     }
 
     const validation = validateSkill(skill);
     if (!validation.success) {
       validationErrors.push(
-        `${remote.id}: ${validation.errors.join("; ")}`,
+        `skill ${remote.id}: ${validation.errors.join("; ")}`,
       );
       continue;
     }
@@ -138,21 +140,47 @@ async function initFromGitHub(source: string, skillsDir: string): Promise<void> 
     const dir = path.join(skillsDir, validation.data.id);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "SKILL.md"), remote.content, "utf-8");
-    written++;
-    console.log(`  + ${validation.data.id}`);
+    skillsWritten++;
+    console.log(`  + skill: ${validation.data.id}`);
+  }
+
+  // Write rules
+  for (const remote of result.rules) {
+    let rule: RuleSpec;
+    try {
+      rule = parseRule(remote.content);
+    } catch {
+      validationErrors.push(`rule ${remote.id}: Failed to parse frontmatter`);
+      continue;
+    }
+
+    const validation = validateRule(rule);
+    if (!validation.success) {
+      validationErrors.push(
+        `rule ${remote.id}: ${validation.errors.join("; ")}`,
+      );
+      continue;
+    }
+
+    const dir = path.join(rulesDir, validation.data.id);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "RULE.md"), remote.content, "utf-8");
+    rulesWritten++;
+    console.log(`  + rule: ${validation.data.id}`);
   }
 
   if (validationErrors.length > 0) {
-    console.warn(`\nSkipped ${validationErrors.length} invalid skill(s):`);
+    console.warn(`\nSkipped ${validationErrors.length} invalid resource(s):`);
     for (const err of validationErrors) {
       console.warn(`  - ${err}`);
     }
   }
 
-  console.log(`\nInitialized .my-ai with ${written} skill(s) from ${source}.`);
+  const total = skillsWritten + rulesWritten;
+  console.log(`\nInitialized .my-ai with ${skillsWritten} skill(s) and ${rulesWritten} rule(s) from ${source}.`);
 
-  if (written === 0) {
-    console.error("No valid skills were imported. Removing .my-ai directory.");
+  if (total === 0) {
+    console.error("No valid resources were imported. Removing .my-ai directory.");
     fs.rmSync(path.resolve(".my-ai"), { recursive: true, force: true });
     process.exit(1);
   }

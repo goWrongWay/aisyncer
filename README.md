@@ -65,7 +65,7 @@ aisyncer init
 aisyncer init --with-rules
 ```
 
-Or import skills from a GitHub repository:
+Or import skills and rules from a GitHub repository:
 
 ```bash
 # All of these work — paste whatever you have
@@ -75,15 +75,20 @@ aisyncer init --from https://github.com/owner/repo
 aisyncer init --from https://github.com/owner/repo.git
 ```
 
-The remote repository must follow this structure:
+The remote repository must follow this structure (`rules/` is optional):
 
 ```
-skills/
+skills/                    ← required
   my-skill/
     SKILL.md
   another-skill/
     SKILL.md
+rules/                     ← optional, auto-detected
+  my-rule/
+    RULE.md
 ```
+
+Both `skills/` and `rules/` are automatically detected — no extra flags needed.
 
 For private repositories, set `GITHUB_TOKEN`:
 
@@ -92,7 +97,7 @@ export GITHUB_TOKEN=ghp_xxx
 aisyncer init --from github:owner/private-repo
 ```
 
-> No git clone. We use the GitHub REST API to fetch only `skills/*/SKILL.md` files.
+> No git clone. We use the GitHub REST API to fetch `skills/*/SKILL.md` and `rules/*/RULE.md` files.
 
 ### `aisyncer validate`
 
@@ -306,28 +311,29 @@ This keeps the mental model simple: edit in one place, sync everywhere.
 
 The sync hash covers all meaningful fields (name, description, allowedTools, metadata, content for skills; name, description, metadata, content for rules) — not just the markdown body. Changing a resource's description or tags will correctly trigger an overwrite on the next sync.
 
-## Sharing Skills via GitHub
+## Sharing via GitHub
 
-You can maintain a shared skills repository for your team:
+You can maintain a shared repository of skills and rules for your team:
 
 ```
-my-org/ai-skills/
+my-org/ai-config/
   skills/
     code-review/
       SKILL.md
     api-design/
       SKILL.md
-    testing-strategy/
-      SKILL.md
+  rules/                     ← optional
+    code-style/
+      RULE.md
 ```
 
-Team members pull skills with:
+Team members pull everything with:
 
 ```bash
-aisyncer init --from github:my-org/ai-skills
+aisyncer init --from github:my-org/ai-config
 ```
 
-This fetches skills via the GitHub API (no clone needed) and writes them to `.my-ai/skills/`. From there, `aisyncer sync` distributes them to each platform.
+This fetches skills and rules via the GitHub API (no clone needed) and writes them to `.my-ai/`. From there, `aisyncer sync` distributes them to each platform.
 
 ## Roadmap
 

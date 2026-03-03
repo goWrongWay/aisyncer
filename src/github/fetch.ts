@@ -1,20 +1,25 @@
 /**
- * Fetch skills from a GitHub repository using the REST API.
+ * Fetch skills and rules from a GitHub repository using the REST API.
  *
  * Expected remote structure:
- *   skills/<id>/SKILL.md
+ *   skills/<id>/SKILL.md   (at least skills/ or rules/ must exist)
+ *   rules/<id>/RULE.md     (optional)
  *
  * Uses the GitHub Contents API. No git clone needed.
  * Supports GITHUB_TOKEN for private repos and rate limits.
  */
 
-export interface GitHubSkillFile {
+export interface GitHubResourceFile {
   id: string;
   content: string;
 }
 
+/** @deprecated Use GitHubResourceFile instead */
+export type GitHubSkillFile = GitHubResourceFile;
+
 export interface FetchResult {
-  skills: GitHubSkillFile[];
+  skills: GitHubResourceFile[];
+  rules: GitHubResourceFile[];
   errors: string[];
 }
 
@@ -49,7 +54,7 @@ async function githubGet<T>(url: string, token?: string): Promise<T> {
   const res = await fetch(url, { headers: buildHeaders(token) });
 
   if (res.status === 404) {
-    throw new Error(`Not found: ${url}. Check that the repository exists and contains a skills/ directory.`);
+    throw new Error(`Not found: ${url}. Check that the repository exists and is accessible.`);
   }
   if (res.status === 401 || res.status === 403) {
     const hint = token
@@ -99,21 +104,45 @@ export function parseGitHubSource(source: string): {
   );
 }
 
+async function fetchBlobs(
+  blobs: GitHubTreeItem[],
+  pattern: RegExp,
+  token?: string,
+): Promise<{ files: GitHubResourceFile[]; errors: string[] }> {
+  const files: GitHubResourceFile[] = [];
+  const errors: string[] = [];
+
+  for (const blob of blobs) {
+    const match = blob.path.match(pattern)!;
+    const id = match[1];
+
+    try {
+      const blobData = await githubGet<GitHubBlobResponse>(blob.url, token);
+      const content = Buffer.from(blobData.content, blobData.encoding as BufferEncoding).toString("utf-8");
+      files.push({ id, content });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`Failed to fetch ${blob.path}: ${msg}`);
+    }
+  }
+
+  return { files, errors };
+}
+
 /**
- * Fetch all skills from a GitHub repo.
+ * Fetch all skills and rules from a GitHub repo.
  *
  * Strategy:
  * 1. GET the default branch's tree recursively.
- * 2. Filter for paths matching skills/<id>/SKILL.md.
+ * 2. Filter for paths matching skills/<id>/SKILL.md and rules/<id>/RULE.md.
  * 3. GET each blob to retrieve file content.
  */
-export async function fetchSkillsFromGitHub(
+export async function fetchFromGitHub(
   source: string,
   token?: string,
 ): Promise<FetchResult> {
   const { owner, repo, ref } = parseGitHubSource(source);
   const errors: string[] = [];
-  const skills: GitHubSkillFile[] = [];
 
   const apiBase = `https://api.github.com/repos/${owner}/${repo}`;
 
@@ -150,36 +179,35 @@ export async function fetchSkillsFromGitHub(
   );
 
   if (tree.truncated) {
-    errors.push("Warning: Repository tree was truncated. Some skills may be missing.");
+    errors.push("Warning: Repository tree was truncated. Some resources may be missing.");
   }
 
-  // Find all skills/<id>/SKILL.md blobs
+  // Find skills/<id>/SKILL.md and rules/<id>/RULE.md blobs
   const skillPattern = /^skills\/([a-z0-9-]+)\/SKILL\.md$/;
+  const rulePattern = /^rules\/([a-z0-9-]+)\/RULE\.md$/;
+
   const skillBlobs = tree.tree.filter(
     (item) => item.type === "blob" && skillPattern.test(item.path),
   );
+  const ruleBlobs = tree.tree.filter(
+    (item) => item.type === "blob" && rulePattern.test(item.path),
+  );
 
-  if (skillBlobs.length === 0) {
+  if (skillBlobs.length === 0 && ruleBlobs.length === 0) {
     errors.push(
-      `No skills found in ${owner}/${repo}. Expected structure: skills/<id>/SKILL.md`,
+      `No skills or rules found in ${owner}/${repo}. Expected structure: skills/<id>/SKILL.md and/or rules/<id>/RULE.md`,
     );
-    return { skills, errors };
+    return { skills: [], rules: [], errors };
   }
 
-  // Fetch each skill blob
-  for (const blob of skillBlobs) {
-    const match = blob.path.match(skillPattern)!;
-    const skillId = match[1];
+  // Fetch blobs
+  const skillResult = await fetchBlobs(skillBlobs, skillPattern, token);
+  const ruleResult = await fetchBlobs(ruleBlobs, rulePattern, token);
 
-    try {
-      const blobData = await githubGet<GitHubBlobResponse>(blob.url, token);
-      const content = Buffer.from(blobData.content, blobData.encoding as BufferEncoding).toString("utf-8");
-      skills.push({ id: skillId, content });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      errors.push(`Failed to fetch ${blob.path}: ${msg}`);
-    }
-  }
+  errors.push(...skillResult.errors, ...ruleResult.errors);
 
-  return { skills, errors };
+  return { skills: skillResult.files, rules: ruleResult.files, errors };
 }
+
+/** @deprecated Use fetchFromGitHub instead */
+export const fetchSkillsFromGitHub = fetchFromGitHub;

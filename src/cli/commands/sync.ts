@@ -29,15 +29,19 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
     }
   }
 
-  const skillsDir = path.resolve(".my-skills", "skills");
+  const skillsDir = path.resolve(".my-ai", "skills");
   const skills = loadCanonicalSkills(skillsDir);
 
   const rules = options.syncRules
-    ? loadCanonicalRules(path.resolve(".my-skills", "rules"))
+    ? loadCanonicalRules(path.resolve(".my-ai", "rules"))
     : [];
 
   if (skills.length === 0 && rules.length === 0) {
-    console.log("No valid skills found in .my-skills/skills. Run 'aisyncer init' first.");
+    if (options.syncRules) {
+      console.log("No valid skills or rules found in .my-ai. Run 'aisyncer init' first.");
+    } else {
+      console.log("No valid skills found in .my-ai/skills. Run 'aisyncer init' first.");
+    }
     return;
   }
 

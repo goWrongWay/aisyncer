@@ -4,13 +4,13 @@ CLI tool for syncing AI skills, rules, and configs across Claude and Windsurf.
 
 **The problem:** You use Claude Code and Windsurf (maybe more tools tomorrow). Each has its own skills directory, its own format quirks, its own way of doing things. You end up copy-pasting markdown files between `.claude/skills/` and `.windsurf/skills/`, hoping you didn't forget one. It gets old fast.
 
-**The solution:** Maintain one canonical source (`.my-skills/`), sync everywhere.
+**The solution:** Maintain one canonical source (`.my-ai/`), sync everywhere.
 
 ```
-.my-skills/skills/  ──→  .claude/skills/
+.my-ai/skills/  ──→  .claude/skills/
                     ──→  .windsurf/skills/
 
-.my-skills/rules/   ──→  .claude/rules/
+.my-ai/rules/   ──→  .claude/rules/
                     ──→  .windsurf/rules/
 ```
 
@@ -36,7 +36,7 @@ Requires Node.js 20+.
 ## Quick Start
 
 ```bash
-# 1. Initialize — creates .my-skills/ with an example skill (and optionally rules)
+# 1. Initialize — creates .my-ai/ with an example skill (and optionally rules)
 aisyncer init
 aisyncer init --with-rules
 
@@ -58,7 +58,7 @@ That's it. Skills and rules, four commands, no config files, no databases.
 
 ### `aisyncer init`
 
-Create a `.my-skills/` directory with an example skill (and optionally an example rule).
+Create a `.my-ai/` directory with an example skill (and optionally an example rule).
 
 ```bash
 aisyncer init
@@ -96,7 +96,7 @@ aisyncer init --from github:owner/private-repo
 
 ### `aisyncer validate`
 
-Validate all skills in `.my-skills/skills/` (and optionally rules in `.my-skills/rules/`).
+Validate all skills in `.my-ai/skills/` (and optionally rules in `.my-ai/rules/`).
 
 ```bash
 aisyncer validate
@@ -114,7 +114,7 @@ Exits with non-zero code on failure — safe to use in CI.
 
 ### `aisyncer sync`
 
-Sync skills (and optionally rules) from `.my-skills/` to platform directories.
+Sync skills (and optionally rules) from `.my-ai/` to platform directories.
 
 ```bash
 # Dry-run (default) — shows what would happen, writes nothing
@@ -250,7 +250,7 @@ Follow these code style conventions in all files.
 
 ```
 your-project/
-  .my-skills/              ← You manage this (canonical source)
+  .my-ai/              ← You manage this (canonical source)
     skills/
       code-review/
         SKILL.md
@@ -281,12 +281,12 @@ your-project/
 
 ### Single source of truth
 
-`.my-skills/` is the only directory you should ever edit. Everything else is derived output. This avoids the classic "which copy is the latest?" problem.
+`.my-ai/` is the only directory you should ever edit. Everything else is derived output. This avoids the classic "which copy is the latest?" problem.
 
 ### One-way sync only
 
-Sync always flows from `.my-skills/` → platform directories. We intentionally don't support:
-- Reading from `.claude/` back into `.my-skills/`
+Sync always flows from `.my-ai/` → platform directories. We intentionally don't support:
+- Reading from `.claude/` back into `.my-ai/`
 - Merging changes from platform directories
 - Two-way sync
 
@@ -300,7 +300,7 @@ This keeps the mental model simple: edit in one place, sync everywhere.
 
 - Skills are just markdown files with YAML frontmatter — readable and editable by humans
 - No database, no config server, no proprietary format
-- If you stop using aisyncer, your `.my-skills/` directory is still perfectly usable
+- If you stop using aisyncer, your `.my-ai/` directory is still perfectly usable
 
 ### Semantic hash for conflict detection
 
@@ -327,7 +327,7 @@ Team members pull skills with:
 aisyncer init --from github:my-org/ai-skills
 ```
 
-This fetches skills via the GitHub API (no clone needed) and writes them to `.my-skills/skills/`. From there, `aisyncer sync` distributes them to each platform.
+This fetches skills via the GitHub API (no clone needed) and writes them to `.my-ai/skills/`. From there, `aisyncer sync` distributes them to each platform.
 
 ## Roadmap
 

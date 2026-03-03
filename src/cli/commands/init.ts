@@ -51,11 +51,11 @@ This is an example rule that demonstrates how to write rules for AI assistants.
 };
 
 export async function initCommand(options: { from?: string; withRules?: boolean }): Promise<void> {
-  const baseDir = path.resolve(".my-skills");
+  const baseDir = path.resolve(".my-ai");
   const skillsDir = path.join(baseDir, "skills");
 
   if (fs.existsSync(baseDir)) {
-    console.log(".my-skills directory already exists. Skipping init.");
+    console.log(".my-ai directory already exists. Skipping init.");
     return;
   }
 
@@ -73,7 +73,7 @@ function initLocal(skillsDir: string, withRules: boolean): void {
   fs.mkdirSync(exampleDir, { recursive: true });
   fs.writeFileSync(skillFile, emitSkill(EXAMPLE_SKILL), "utf-8");
 
-  console.log("Initialized .my-skills with example skill:");
+  console.log("Initialized .my-ai with example skill:");
   console.log(`  ${skillFile}`);
 
   if (withRules) {
@@ -149,11 +149,11 @@ async function initFromGitHub(source: string, skillsDir: string): Promise<void> 
     }
   }
 
-  console.log(`\nInitialized .my-skills with ${written} skill(s) from ${source}.`);
+  console.log(`\nInitialized .my-ai with ${written} skill(s) from ${source}.`);
 
   if (written === 0) {
-    console.error("No valid skills were imported. Removing .my-skills directory.");
-    fs.rmSync(path.resolve(".my-skills"), { recursive: true, force: true });
+    console.error("No valid skills were imported. Removing .my-ai directory.");
+    fs.rmSync(path.resolve(".my-ai"), { recursive: true, force: true });
     process.exit(1);
   }
 }

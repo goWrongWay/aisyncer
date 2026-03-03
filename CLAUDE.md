@@ -21,7 +21,7 @@ npx vitest run --grep "plans ADD"
 
 ## Architecture
 
-One-way sync tool: `.my-skills/<type>/<id>/<TYPE>.md` → platform directories (`.claude/<type>/`, `.windsurf/<type>/`).
+One-way sync tool: `.my-ai/<type>/<id>/<TYPE>.md` → platform directories (`.claude/<type>/`, `.windsurf/<type>/`).
 
 Supports multiple resource types (skills, rules) via a generic `ResourceConfig<T>` system. Adding a new resource type does NOT require changing `resource.ts`, `PlatformAdapter`, or any generic infrastructure — only a new schema + config + CLI wiring.
 

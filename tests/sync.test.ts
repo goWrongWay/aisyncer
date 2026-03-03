@@ -101,6 +101,7 @@ describe("planSync", () => {
     expect(actions).toHaveLength(1);
     expect(actions[0].action).toBe("add");
     expect(actions[0].id).toBe("skill-a");
+    expect(actions[0].skillId).toBe("skill-a");
   });
 
   it("plans SKIP when full skill hash matches", () => {
@@ -173,6 +174,8 @@ describe("planSync", () => {
     const bAction = actions.find((a) => a.id === "skill-b");
     expect(aAction?.action).toBe("skip");
     expect(bAction?.action).toBe("add");
+    expect(aAction?.skillId).toBe("skill-a");
+    expect(bAction?.skillId).toBe("skill-b");
   });
 
   it("plans ADD when target has corrupted frontmatter", () => {

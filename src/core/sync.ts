@@ -4,8 +4,8 @@ import type { PlatformAdapter } from "../adapters/base.js";
 import type { ResourceSyncAction } from "./resource.js";
 import { loadCanonicalResources, planResourceSync, executeResourceSync } from "./resource.js";
 
-// Re-export for backward compatibility
-export type { ResourceSyncAction as SyncAction } from "./resource.js";
+// Legacy skill action shape retained for backward compatibility.
+export type SyncAction = ResourceSyncAction & { skillId: string };
 
 // -- Skills --
 
@@ -16,13 +16,14 @@ export function loadCanonicalSkills(skillsDir: string): SkillSpec[] {
 export function planSync(
   skills: SkillSpec[],
   adapter: PlatformAdapter,
-): ResourceSyncAction[] {
-  return planResourceSync(
+): SyncAction[] {
+  const actions = planResourceSync(
     skills,
     (id) => adapter.readResource(id, skillConfig),
     (id) => adapter.resourcePath(id, skillConfig),
     skillConfig,
   );
+  return actions.map((action) => ({ ...action, skillId: action.id }));
 }
 
 export function executeSync(

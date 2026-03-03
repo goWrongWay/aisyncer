@@ -3,7 +3,7 @@ import { validateSkillsDir, validateRulesDir } from "../../core/validator.js";
 import type { ValidationResult } from "../../core/validator.js";
 
 export async function validateCommand(options: { withRules?: boolean }): Promise<void> {
-  const skillsDir = path.resolve(".my-skills", "skills");
+  const skillsDir = path.resolve(".my-ai", "skills");
   const allResults: ValidationResult[] = [];
 
   console.log(`Validating skills in ${skillsDir}...\n`);
@@ -24,7 +24,7 @@ export async function validateCommand(options: { withRules?: boolean }): Promise
   }
 
   if (options.withRules) {
-    const rulesDir = path.resolve(".my-skills", "rules");
+    const rulesDir = path.resolve(".my-ai", "rules");
     console.log(`Validating rules in ${rulesDir}...\n`);
 
     const ruleResults = validateRulesDir(rulesDir);

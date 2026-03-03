@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { RuleSpecSchema, validateRule } from "../src/core/schema.js";
+import { RuleSpecSchema, validateRule, ruleConfig } from "../src/core/schema.js";
 import type { RuleSpec } from "../src/core/schema.js";
 import { parseRule, emitRule } from "../src/core/parser.js";
 import { hashRule } from "../src/core/hash.js";
@@ -311,7 +311,7 @@ describe("planRuleSync", () => {
 
   it("plans SKIP when hash matches", () => {
     const adapter = createAdapter("test", targetDir);
-    adapter.writeRule(RULE_A);
+    adapter.writeResource(RULE_A, ruleConfig);
     const actions = planRuleSync([RULE_A], adapter);
     expect(actions).toHaveLength(1);
     expect(actions[0].action).toBe("skip");
@@ -319,7 +319,7 @@ describe("planRuleSync", () => {
 
   it("plans OVERWRITE when content differs", () => {
     const adapter = createAdapter("test", targetDir);
-    adapter.writeRule(RULE_A);
+    adapter.writeResource(RULE_A, ruleConfig);
     const modified = { ...RULE_A, content: "# Modified" };
     const actions = planRuleSync([modified], adapter);
     expect(actions).toHaveLength(1);
@@ -356,15 +356,15 @@ describe("executeRuleSync", () => {
     const adapter = createAdapter("test", targetDir);
     const actions = planRuleSync([RULE_A, RULE_B], adapter);
     executeRuleSync([RULE_A, RULE_B], actions, adapter);
-    expect(adapter.readRule("rule-a")).not.toBeNull();
-    expect(adapter.readRule("rule-b")).not.toBeNull();
+    expect(adapter.readResource("rule-a", ruleConfig)).not.toBeNull();
+    expect(adapter.readResource("rule-b", ruleConfig)).not.toBeNull();
   });
 
   it("does not write for skip actions", () => {
     const adapter = createAdapter("test", targetDir);
-    adapter.writeRule(RULE_A);
+    adapter.writeResource(RULE_A, ruleConfig);
 
-    const filePath = adapter.rulePath(RULE_A.id);
+    const filePath = adapter.resourcePath(RULE_A.id, ruleConfig);
     const mtimeBefore = fs.statSync(filePath).mtimeMs;
 
     const actions = planRuleSync([RULE_A], adapter);

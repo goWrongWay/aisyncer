@@ -19,8 +19,8 @@ export function planSync(
 ): ResourceSyncAction[] {
   return planResourceSync(
     skills,
-    (id) => adapter.readSkill(id),
-    (id) => adapter.skillPath(id),
+    (id) => adapter.readResource(id, skillConfig),
+    (id) => adapter.resourcePath(id, skillConfig),
     skillConfig,
   );
 }
@@ -30,7 +30,7 @@ export function executeSync(
   actions: ResourceSyncAction[],
   adapter: PlatformAdapter,
 ): void {
-  executeResourceSync(skills, actions, (skill) => adapter.writeSkill(skill));
+  executeResourceSync(skills, actions, (skill) => adapter.writeResource(skill, skillConfig));
 }
 
 // -- Rules --
@@ -45,8 +45,8 @@ export function planRuleSync(
 ): ResourceSyncAction[] {
   return planResourceSync(
     rules,
-    (id) => adapter.readRule(id),
-    (id) => adapter.rulePath(id),
+    (id) => adapter.readResource(id, ruleConfig),
+    (id) => adapter.resourcePath(id, ruleConfig),
     ruleConfig,
   );
 }
@@ -56,5 +56,5 @@ export function executeRuleSync(
   actions: ResourceSyncAction[],
   adapter: PlatformAdapter,
 ): void {
-  executeResourceSync(rules, actions, (rule) => adapter.writeRule(rule));
+  executeResourceSync(rules, actions, (rule) => adapter.writeResource(rule, ruleConfig));
 }

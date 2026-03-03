@@ -18,7 +18,7 @@ export { validateRulesDir } from "./core/validator.js";
 export type { ValidationResult } from "./core/validator.js";
 export type { ResourceSyncAction } from "./core/resource.js";
 export { createAdapter } from "./adapters/base.js";
-export type { PlatformAdapter, SyncAction } from "./adapters/base.js";
+export type { PlatformAdapter } from "./adapters/base.js";
 export { createClaudeAdapter } from "./adapters/claude.js";
 export { createWindsurfAdapter } from "./adapters/windsurf.js";
 export { fetchSkillsFromGitHub, parseGitHubSource } from "./github/fetch.js";

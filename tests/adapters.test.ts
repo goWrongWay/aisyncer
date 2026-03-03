@@ -5,8 +5,9 @@ import os from "node:os";
 import { createAdapter } from "../src/adapters/base.js";
 import { createClaudeAdapter } from "../src/adapters/claude.js";
 import { createWindsurfAdapter } from "../src/adapters/windsurf.js";
-import { emitSkill } from "../src/core/parser.js";
 import type { SkillSpec } from "../src/core/schema.js";
+import { skillConfig, ruleConfig } from "../src/core/schema.js";
+import type { RuleSpec } from "../src/core/schema.js";
 
 const SAMPLE_SKILL: SkillSpec = {
   schemaVersion: 1,
@@ -14,6 +15,14 @@ const SAMPLE_SKILL: SkillSpec = {
   name: "Test Skill",
   description: "A test skill",
   content: "# Test\n\nContent here.",
+};
+
+const SAMPLE_RULE: RuleSpec = {
+  schemaVersion: 1,
+  id: "test-rule",
+  name: "Test Rule",
+  description: "A test rule",
+  content: "# Test Rule\n\nRule content.",
 };
 
 describe("createAdapter", () => {
@@ -29,14 +38,14 @@ describe("createAdapter", () => {
 
   it("returns null for non-existent skill", () => {
     const adapter = createAdapter("test", tmpDir);
-    expect(adapter.readSkill("nonexistent")).toBeNull();
+    expect(adapter.readResource("nonexistent", skillConfig)).toBeNull();
   });
 
   it("writes and reads back a skill", () => {
     const adapter = createAdapter("test", tmpDir);
-    adapter.writeSkill(SAMPLE_SKILL);
+    adapter.writeResource(SAMPLE_SKILL, skillConfig);
 
-    const read = adapter.readSkill(SAMPLE_SKILL.id);
+    const read = adapter.readResource(SAMPLE_SKILL.id, skillConfig);
     expect(read).not.toBeNull();
     expect(read!.id).toBe(SAMPLE_SKILL.id);
     expect(read!.name).toBe(SAMPLE_SKILL.name);
@@ -45,15 +54,15 @@ describe("createAdapter", () => {
 
   it("creates the correct file path", () => {
     const adapter = createAdapter("test", tmpDir);
-    adapter.writeSkill(SAMPLE_SKILL);
+    adapter.writeResource(SAMPLE_SKILL, skillConfig);
 
     const expectedPath = path.join(tmpDir, "skills", SAMPLE_SKILL.id, "SKILL.md");
     expect(fs.existsSync(expectedPath)).toBe(true);
   });
 
-  it("skillPath returns expected path", () => {
+  it("resourcePath returns expected path", () => {
     const adapter = createAdapter("test", tmpDir);
-    const p = adapter.skillPath("my-id");
+    const p = adapter.resourcePath("my-id", skillConfig);
     expect(p).toBe(path.join(tmpDir, "skills", "my-id", "SKILL.md"));
   });
 
@@ -66,7 +75,23 @@ describe("createAdapter", () => {
       "this is not yaml frontmatter at all {{{",
       "utf-8",
     );
-    expect(adapter.readSkill("corrupt-skill")).toBeNull();
+    expect(adapter.readResource("corrupt-skill", skillConfig)).toBeNull();
+  });
+
+  it("writes and reads back a rule", () => {
+    const adapter = createAdapter("test", tmpDir);
+    adapter.writeResource(SAMPLE_RULE, ruleConfig);
+
+    const read = adapter.readResource(SAMPLE_RULE.id, ruleConfig);
+    expect(read).not.toBeNull();
+    expect(read!.id).toBe(SAMPLE_RULE.id);
+    expect(read!.content).toBe(SAMPLE_RULE.content);
+  });
+
+  it("resourcePath works for rules", () => {
+    const adapter = createAdapter("test", tmpDir);
+    const p = adapter.resourcePath("my-rule", ruleConfig);
+    expect(p).toBe(path.join(tmpDir, "rules", "my-rule", "RULE.md"));
   });
 });
 
@@ -84,7 +109,7 @@ describe("createClaudeAdapter", () => {
   it("uses custom directory when provided", () => {
     const adapter = createClaudeAdapter(tmpDir);
     expect(adapter.name).toBe("claude");
-    adapter.writeSkill(SAMPLE_SKILL);
+    adapter.writeResource(SAMPLE_SKILL, skillConfig);
     expect(fs.existsSync(path.join(tmpDir, "skills", SAMPLE_SKILL.id, "SKILL.md"))).toBe(true);
   });
 });
@@ -103,7 +128,7 @@ describe("createWindsurfAdapter", () => {
   it("uses custom directory when provided", () => {
     const adapter = createWindsurfAdapter(tmpDir);
     expect(adapter.name).toBe("windsurf");
-    adapter.writeSkill(SAMPLE_SKILL);
+    adapter.writeResource(SAMPLE_SKILL, skillConfig);
     expect(fs.existsSync(path.join(tmpDir, "skills", SAMPLE_SKILL.id, "SKILL.md"))).toBe(true);
   });
 });

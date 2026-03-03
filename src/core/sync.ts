@@ -1,82 +1,61 @@
-import fs from "node:fs";
-import path from "node:path";
-import { parseSkill } from "../core/parser.js";
-import { hashSkill } from "../core/hash.js";
-import { validateSkill } from "../core/schema.js";
-import type { SkillSpec } from "../core/schema.js";
-import type { PlatformAdapter, SyncAction } from "../adapters/base.js";
+import type { SkillSpec, RuleSpec } from "./schema.js";
+import { skillConfig, ruleConfig } from "./schema.js";
+import type { PlatformAdapter } from "../adapters/base.js";
+import type { ResourceSyncAction } from "./resource.js";
+import { loadCanonicalResources, planResourceSync, executeResourceSync } from "./resource.js";
 
-/**
- * Load all valid skills from the canonical .my-skills/skills directory.
- */
+// Legacy skill action shape retained for backward compatibility.
+export type SyncAction = ResourceSyncAction & { skillId: string };
+
+// -- Skills --
+
 export function loadCanonicalSkills(skillsDir: string): SkillSpec[] {
-  if (!fs.existsSync(skillsDir)) return [];
-
-  const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
-  const skills: SkillSpec[] = [];
-
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const skillFile = path.join(skillsDir, entry.name, "SKILL.md");
-    if (!fs.existsSync(skillFile)) continue;
-
-    try {
-      const raw = fs.readFileSync(skillFile, "utf-8");
-      const parsed = parseSkill(raw);
-      const result = validateSkill(parsed);
-      if (result.success) {
-        skills.push(result.data);
-      }
-    } catch {
-      // Skip unparseable files silently — validate command will report them
-      continue;
-    }
-  }
-
-  return skills;
+  return loadCanonicalResources(skillsDir, skillConfig);
 }
 
-/**
- * Plan sync actions for a list of skills against a platform adapter.
- * Does NOT write anything — pure computation.
- */
 export function planSync(
   skills: SkillSpec[],
   adapter: PlatformAdapter,
 ): SyncAction[] {
-  const actions: SyncAction[] = [];
-
-  for (const skill of skills) {
-    const existing = adapter.readSkill(skill.id);
-    const targetPath = adapter.skillPath(skill.id);
-
-    if (!existing) {
-      actions.push({ skillId: skill.id, action: "add", targetPath });
-    } else if (hashSkill(existing) === hashSkill(skill)) {
-      actions.push({ skillId: skill.id, action: "skip", targetPath });
-    } else {
-      actions.push({ skillId: skill.id, action: "overwrite", targetPath });
-    }
-  }
-
-  return actions;
+  const actions = planResourceSync(
+    skills,
+    (id) => adapter.readResource(id, skillConfig),
+    (id) => adapter.resourcePath(id, skillConfig),
+    skillConfig,
+  );
+  return actions.map((action) => ({ ...action, skillId: action.id }));
 }
 
-/**
- * Execute sync actions: write skills that need add/overwrite.
- */
 export function executeSync(
   skills: SkillSpec[],
-  actions: SyncAction[],
+  actions: ResourceSyncAction[],
   adapter: PlatformAdapter,
 ): void {
-  const skillMap = new Map(skills.map((s) => [s.id, s]));
+  executeResourceSync(skills, actions, (skill) => adapter.writeResource(skill, skillConfig));
+}
 
-  for (const action of actions) {
-    if (action.action === "skip") continue;
-    const skill = skillMap.get(action.skillId);
-    if (skill) {
-      adapter.writeSkill(skill);
-    }
-  }
+// -- Rules --
+
+export function loadCanonicalRules(rulesDir: string): RuleSpec[] {
+  return loadCanonicalResources(rulesDir, ruleConfig);
+}
+
+export function planRuleSync(
+  rules: RuleSpec[],
+  adapter: PlatformAdapter,
+): ResourceSyncAction[] {
+  return planResourceSync(
+    rules,
+    (id) => adapter.readResource(id, ruleConfig),
+    (id) => adapter.resourcePath(id, ruleConfig),
+    ruleConfig,
+  );
+}
+
+export function executeRuleSync(
+  rules: RuleSpec[],
+  actions: ResourceSyncAction[],
+  adapter: PlatformAdapter,
+): void {
+  executeResourceSync(rules, actions, (rule) => adapter.writeResource(rule, ruleConfig));
 }

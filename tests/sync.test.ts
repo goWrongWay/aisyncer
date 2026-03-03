@@ -6,6 +6,7 @@ import { loadCanonicalSkills, planSync, executeSync } from "../src/core/sync.js"
 import { createAdapter } from "../src/adapters/base.js";
 import { emitSkill } from "../src/core/parser.js";
 import type { SkillSpec } from "../src/core/schema.js";
+import { skillConfig } from "../src/core/schema.js";
 
 const SKILL_A: SkillSpec = {
   schemaVersion: 1,
@@ -99,12 +100,13 @@ describe("planSync", () => {
     const actions = planSync([SKILL_A], adapter);
     expect(actions).toHaveLength(1);
     expect(actions[0].action).toBe("add");
+    expect(actions[0].id).toBe("skill-a");
     expect(actions[0].skillId).toBe("skill-a");
   });
 
   it("plans SKIP when full skill hash matches", () => {
     const adapter = createAdapter("test", targetDir);
-    adapter.writeSkill(SKILL_A);
+    adapter.writeResource(SKILL_A, skillConfig);
 
     const actions = planSync([SKILL_A], adapter);
     expect(actions).toHaveLength(1);
@@ -113,7 +115,7 @@ describe("planSync", () => {
 
   it("plans OVERWRITE when content differs", () => {
     const adapter = createAdapter("test", targetDir);
-    adapter.writeSkill(SKILL_A);
+    adapter.writeResource(SKILL_A, skillConfig);
 
     const modifiedA: SkillSpec = { ...SKILL_A, content: "# Modified content" };
     const actions = planSync([modifiedA], adapter);
@@ -123,7 +125,7 @@ describe("planSync", () => {
 
   it("plans OVERWRITE when name differs but content is same", () => {
     const adapter = createAdapter("test", targetDir);
-    adapter.writeSkill(SKILL_A);
+    adapter.writeResource(SKILL_A, skillConfig);
 
     const renamedA: SkillSpec = { ...SKILL_A, name: "Renamed Skill A" };
     const actions = planSync([renamedA], adapter);
@@ -133,7 +135,7 @@ describe("planSync", () => {
 
   it("plans OVERWRITE when description differs but content is same", () => {
     const adapter = createAdapter("test", targetDir);
-    adapter.writeSkill(SKILL_A);
+    adapter.writeResource(SKILL_A, skillConfig);
 
     const modified: SkillSpec = { ...SKILL_A, description: "New description" };
     const actions = planSync([modified], adapter);
@@ -143,7 +145,7 @@ describe("planSync", () => {
 
   it("plans OVERWRITE when allowedTools differs", () => {
     const adapter = createAdapter("test", targetDir);
-    adapter.writeSkill(SKILL_A);
+    adapter.writeResource(SKILL_A, skillConfig);
 
     const modified: SkillSpec = { ...SKILL_A, allowedTools: ["Bash"] };
     const actions = planSync([modified], adapter);
@@ -153,7 +155,7 @@ describe("planSync", () => {
 
   it("plans OVERWRITE when metadata differs", () => {
     const adapter = createAdapter("test", targetDir);
-    adapter.writeSkill(SKILL_A);
+    adapter.writeResource(SKILL_A, skillConfig);
 
     const modified: SkillSpec = { ...SKILL_A, metadata: { version: "9.9.9" } };
     const actions = planSync([modified], adapter);
@@ -163,20 +165,21 @@ describe("planSync", () => {
 
   it("handles multiple skills with mixed actions", () => {
     const adapter = createAdapter("test", targetDir);
-    adapter.writeSkill(SKILL_A);
+    adapter.writeResource(SKILL_A, skillConfig);
 
     const actions = planSync([SKILL_A, SKILL_B], adapter);
 
     expect(actions).toHaveLength(2);
-    const aAction = actions.find((a) => a.skillId === "skill-a");
-    const bAction = actions.find((a) => a.skillId === "skill-b");
+    const aAction = actions.find((a) => a.id === "skill-a");
+    const bAction = actions.find((a) => a.id === "skill-b");
     expect(aAction?.action).toBe("skip");
     expect(bAction?.action).toBe("add");
+    expect(aAction?.skillId).toBe("skill-a");
+    expect(bAction?.skillId).toBe("skill-b");
   });
 
   it("plans ADD when target has corrupted frontmatter", () => {
     const adapter = createAdapter("test", targetDir);
-    // Write a corrupted file in the target
     const corruptDir = path.join(targetDir, "skills", SKILL_A.id);
     fs.mkdirSync(corruptDir, { recursive: true });
     fs.writeFileSync(
@@ -187,7 +190,6 @@ describe("planSync", () => {
 
     const actions = planSync([SKILL_A], adapter);
     expect(actions).toHaveLength(1);
-    // readSkill returns null for corrupt files, so this is "add"
     expect(actions[0].action).toBe("add");
   });
 });
@@ -209,15 +211,15 @@ describe("executeSync", () => {
 
     executeSync([SKILL_A, SKILL_B], actions, adapter);
 
-    expect(adapter.readSkill("skill-a")).not.toBeNull();
-    expect(adapter.readSkill("skill-b")).not.toBeNull();
+    expect(adapter.readResource("skill-a", skillConfig)).not.toBeNull();
+    expect(adapter.readResource("skill-b", skillConfig)).not.toBeNull();
   });
 
   it("does not write for skip actions", () => {
     const adapter = createAdapter("test", targetDir);
-    adapter.writeSkill(SKILL_A);
+    adapter.writeResource(SKILL_A, skillConfig);
 
-    const filePath = adapter.skillPath(SKILL_A.id);
+    const filePath = adapter.resourcePath(SKILL_A.id, skillConfig);
     const mtimeBefore = fs.statSync(filePath).mtimeMs;
 
     const actions = planSync([SKILL_A], adapter);
@@ -231,7 +233,7 @@ describe("executeSync", () => {
 
   it("overwrites when content differs", () => {
     const adapter = createAdapter("test", targetDir);
-    adapter.writeSkill(SKILL_A);
+    adapter.writeResource(SKILL_A, skillConfig);
 
     const modifiedA: SkillSpec = { ...SKILL_A, content: "# Updated content\n\nNew text." };
     const actions = planSync([modifiedA], adapter);
@@ -239,7 +241,7 @@ describe("executeSync", () => {
 
     executeSync([modifiedA], actions, adapter);
 
-    const read = adapter.readSkill("skill-a");
+    const read = adapter.readResource("skill-a", skillConfig);
     expect(read?.content).toBe("# Updated content\n\nNew text.");
   });
 });

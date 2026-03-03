@@ -1,6 +1,11 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides canonical guidance for AI coding tools working with this repository.
+
+## Required Reading
+
+- Before proposing architecture or writing code, read `docs/ai-architecture-guardrails.md`.
+- Treat that document as the default guardrail for extensibility and AI collaboration patterns in this repo.
 
 ## Commands
 
@@ -21,35 +26,55 @@ npx vitest run --grep "plans ADD"
 
 ## Architecture
 
-One-way sync tool: `.my-skills/skills/<id>/SKILL.md` → platform directories (`.claude/skills/`, `.windsurf/skills/`).
+One-way sync tool: `.my-ai/<type>/<id>/<TYPE>.md` → platform directories (`.claude/<type>/`, `.windsurf/<type>/`).
 
-### Data flow
+Supports multiple resource types (skills, rules) via a generic `ResourceConfig<T>` system. Adding a new resource type does NOT require changing `resource.ts`, `PlatformAdapter`, or any generic infrastructure — only a new schema + config + CLI wiring.
+
+### Data flow (same for all resource types)
 
 ```
-SKILL.md file
-  → parseSkill() [gray-matter: frontmatter + markdown]
-  → validateSkill() [zod schema]
-  → hashSkill() [SHA-256 of name+description+allowedTools+metadata+content]
-  → planSync() [compare hash with target → ADD/SKIP/OVERWRITE]
-  → executeSync() [write via PlatformAdapter]
+SKILL.md / RULE.md file
+  → parseResource() [gray-matter: frontmatter + markdown]
+  → validateResource() [zod schema via ResourceConfig]
+  → hashResource() [SHA-256 of semantic fields via ResourceConfig.hashFields]
+  → planResourceSync() [compare hash with target → ADD/SKIP/OVERWRITE]
+  → executeResourceSync() [write via PlatformAdapter]
 ```
+
+Convenience wrappers exist per type: `parseSkill()`, `hashRule()`, `planSync()`, etc.
 
 ### Module relationships
 
-- **`core/schema.ts`** — `SkillSpecSchema` (zod), `validateSkill()`, `SkillSpec` type. Name/description are trimmed before validation.
-- **`core/parser.ts`** — `parseSkill()` (SKILL.md → SkillSpec), `emitSkill()` (SkillSpec → SKILL.md). Uses `gray-matter` + `yaml` package.
-- **`core/hash.ts`** — `hashSkill()` hashes a JSON of `{name, description, allowedTools, metadata, content}`. Intentionally excludes `id` and `schemaVersion`.
-- **`core/validator.ts`** — `validateSkillsDir()` scans a directory, checks schema + dir-name-matches-id + no duplicate IDs.
-- **`core/sync.ts`** — `loadCanonicalSkills()` silently skips invalid files (try-catch). `planSync()` returns actions without writing. `executeSync()` writes ADD/OVERWRITE only.
-- **`adapters/base.ts`** — `PlatformAdapter` interface + `createAdapter()` factory. `readSkill()` validates parsed result and returns `null` for corrupt files.
+- **`core/resource.ts`** — Generic infrastructure: `ResourceConfig<T>`, `parseResource()`, `emitResource()`, `hashResource()`, `validateResource()`, `loadCanonicalResources()`, `planResourceSync()`, `executeResourceSync()`, `validateResourceDir()`. All resource-type-agnostic.
+- **`core/schema.ts`** — `SkillSpecSchema` + `RuleSpecSchema` (zod), `validateSkill()` / `validateRule()`, `skillConfig` / `ruleConfig` (ResourceConfig instances). Shared field patterns extracted (idField, nameField, etc.).
+- **`core/parser.ts`** — Thin wrappers: `parseSkill()` / `parseRule()` → `parseResource()`, `emitSkill()` / `emitRule()` → `emitResource()`.
+- **`core/hash.ts`** — Thin wrappers: `hashSkill()` / `hashRule()` → `hashResource()` with respective configs.
+- **`core/validator.ts`** — `validateSkillsDir()` / `validateRulesDir()` → `validateResourceDir()` with respective configs.
+- **`core/sync.ts`** — `loadCanonicalSkills()` / `loadCanonicalRules()`, `planSync()` / `planRuleSync()`, `executeSync()` / `executeRuleSync()`. All delegate to generic resource functions.
+- **`adapters/base.ts`** — `PlatformAdapter` interface with 3 generic methods: `resourcePath()`, `readResource()`, `writeResource()`. `createAdapter()` factory implements all via `ResourceConfig.dirName` + `ResourceConfig.fileName`. No resource-type-specific code.
 - **`adapters/claude.ts`** / **`windsurf.ts`** — Thin wrappers calling `createAdapter()` with platform-specific base dir.
 - **`github/fetch.ts`** — `parseGitHubSource()` handles `github:owner/repo`, `github:owner/repo.git`, full URLs. `fetchSkillsFromGitHub()` uses tree API + blob API, no git clone. Falls back from `main` to `master`.
-- **`cli/commands/`** — `init` (local + GitHub), `validate`, `sync` (dry-run default, `--write` to apply).
+- **`cli/commands/`** — `init` (`--with-rules`), `validate` (`--with-rules`), `sync` (`--sync-rules`, dry-run default, `--write` to apply).
+
+### Adding a new resource type
+
+1. Define `XxxSpecSchema` + `xxxConfig: ResourceConfig<XxxSpec>` in `schema.ts`
+2. Add thin wrappers in `parser.ts`, `hash.ts`, `validator.ts`, `sync.ts`
+3. Wire up CLI options in `cli/commands/` and `cli/index.ts`
+4. Export from `src/index.ts`
+
+No changes needed to `resource.ts` or `adapters/base.ts`.
+
+### Adding a new platform
+
+1. Create `adapters/xxx.ts` (3-5 lines calling `createAdapter("xxx", basePath)`)
+2. Add to `SUPPORTED_PLATFORMS` and `resolveAdapter()` in `cli/commands/sync.ts`
 
 ## Key conventions
 
 - ESM throughout: `"type": "module"`, all imports use `.js` extensions
 - Zod for runtime validation with `.transform(trim).pipe(min(1))` pattern for name/description
+- Generic `ResourceConfig<T>` pattern — never duplicate logic per resource type
 - Tests use `fs.mkdtempSync()` + cleanup in `afterEach()`, fixtures in `tests/fixtures/`
-- Corrupt SKILL.md in target → `readSkill()` returns `null` → treated as ADD (self-healing)
-- `emitSkill()` uses `yaml.stringify(..., { lineWidth: 0 })` to avoid line wrapping
+- Corrupt files in target → `readResource()` returns `null` → treated as ADD (self-healing)
+- `emitResource()` uses `yaml.stringify(..., { lineWidth: 0 })` to avoid line wrapping

@@ -1,23 +1,18 @@
-import matter from "gray-matter";
-import { stringify as yamlStringify } from "yaml";
-import type { SkillSpec } from "./schema.js";
+import type { SkillSpec, RuleSpec } from "./schema.js";
+import { parseResource, emitResource } from "./resource.js";
 
-/**
- * Parse a SKILL.md file (frontmatter + markdown content) into a SkillSpec object.
- */
 export function parseSkill(raw: string): SkillSpec {
-  const { data, content } = matter(raw);
-  return {
-    ...data,
-    content: content.trim(),
-  } as SkillSpec;
+  return parseResource<SkillSpec>(raw);
 }
 
-/**
- * Emit a SkillSpec object back into SKILL.md format (frontmatter + markdown).
- */
 export function emitSkill(skill: SkillSpec): string {
-  const { content, ...frontmatter } = skill;
-  const yaml = yamlStringify(frontmatter, { lineWidth: 0 }).trim();
-  return `---\n${yaml}\n---\n\n${content}\n`;
+  return emitResource(skill);
+}
+
+export function parseRule(raw: string): RuleSpec {
+  return parseResource<RuleSpec>(raw);
+}
+
+export function emitRule(rule: RuleSpec): string {
+  return emitResource(rule);
 }

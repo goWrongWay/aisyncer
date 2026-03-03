@@ -1,18 +1,11 @@
-import { createHash } from "node:crypto";
-import type { SkillSpec } from "./schema.js";
+import type { SkillSpec, RuleSpec } from "./schema.js";
+import { skillConfig, ruleConfig } from "./schema.js";
+import { hashResource } from "./resource.js";
 
-/**
- * Compute a SHA-256 hash covering the full semantic fields of a skill:
- * name, description, allowedTools, metadata, and content.
- * Used for sync conflict detection.
- */
 export function hashSkill(skill: SkillSpec): string {
-  const payload = JSON.stringify({
-    name: skill.name,
-    description: skill.description,
-    allowedTools: skill.allowedTools ?? null,
-    metadata: skill.metadata ?? null,
-    content: skill.content,
-  });
-  return createHash("sha256").update(payload).digest("hex");
+  return hashResource(skill, skillConfig);
+}
+
+export function hashRule(rule: RuleSpec): string {
+  return hashResource(rule, ruleConfig);
 }

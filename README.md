@@ -1,14 +1,20 @@
 # aisyncer
 
+[![npm version](https://img.shields.io/npm/v/aisyncer.svg)](https://www.npmjs.com/package/aisyncer)
+[npm package](https://www.npmjs.com/package/aisyncer)
+
 CLI tool for syncing AI skills, rules, and configs across Claude and Windsurf.
 
 **The problem:** You use Claude Code and Windsurf (maybe more tools tomorrow). Each has its own skills directory, its own format quirks, its own way of doing things. You end up copy-pasting markdown files between `.claude/skills/` and `.windsurf/skills/`, hoping you didn't forget one. It gets old fast.
 
-**The solution:** Maintain one canonical source (`.my-skills/`), sync everywhere.
+**The solution:** Maintain one canonical source (`.my-ai/`), sync everywhere.
 
 ```
-.my-skills/skills/  ──→  .claude/skills/
+.my-ai/skills/  ──→  .claude/skills/
                     ──→  .windsurf/skills/
+
+.my-ai/rules/   ──→  .claude/rules/
+                    ──→  .windsurf/rules/
 ```
 
 - One format, one source of truth
@@ -33,32 +39,36 @@ Requires Node.js 20+.
 ## Quick Start
 
 ```bash
-# 1. Initialize — creates .my-skills/ with an example skill
+# 1. Initialize — creates .my-ai/ with an example skill (and optionally rules)
 aisyncer init
+aisyncer init --with-rules
 
-# 2. Validate — check all skills are well-formed
+# 2. Validate — check all skills (and rules) are well-formed
 aisyncer validate
+aisyncer validate --with-rules
 
 # 3. Preview — see what sync would do (dry-run, no writes)
 aisyncer sync --to claude,windsurf
+aisyncer sync --to claude,windsurf --sync-rules
 
 # 4. Apply — actually write to platform directories
-aisyncer sync --to claude,windsurf --write
+aisyncer sync --to claude,windsurf --sync-rules --write
 ```
 
-That's it. Four commands, no config files, no databases.
+That's it. Skills and rules, four commands, no config files, no databases.
 
 ## Commands
 
 ### `aisyncer init`
 
-Create a `.my-skills/` directory with an example skill.
+Create a `.my-ai/` directory with an example skill (and optionally an example rule).
 
 ```bash
 aisyncer init
+aisyncer init --with-rules
 ```
 
-Or import skills from a GitHub repository:
+Or import skills and rules from a GitHub repository:
 
 ```bash
 # All of these work — paste whatever you have
@@ -68,15 +78,20 @@ aisyncer init --from https://github.com/owner/repo
 aisyncer init --from https://github.com/owner/repo.git
 ```
 
-The remote repository must follow this structure:
+The remote repository must follow this structure (`rules/` is optional):
 
 ```
-skills/
+skills/                    ← required
   my-skill/
     SKILL.md
   another-skill/
     SKILL.md
+rules/                     ← optional, auto-detected
+  my-rule/
+    RULE.md
 ```
+
+Both `skills/` and `rules/` are automatically detected — no extra flags needed.
 
 For private repositories, set `GITHUB_TOKEN`:
 
@@ -85,14 +100,15 @@ export GITHUB_TOKEN=ghp_xxx
 aisyncer init --from github:owner/private-repo
 ```
 
-> No git clone. We use the GitHub REST API to fetch only `skills/*/SKILL.md` files.
+> No git clone. We use the GitHub REST API to fetch `skills/*/SKILL.md` and `rules/*/RULE.md` files.
 
 ### `aisyncer validate`
 
-Validate all skills in `.my-skills/skills/`.
+Validate all skills in `.my-ai/skills/` (and optionally rules in `.my-ai/rules/`).
 
 ```bash
 aisyncer validate
+aisyncer validate --with-rules
 ```
 
 What it checks:
@@ -106,7 +122,7 @@ Exits with non-zero code on failure — safe to use in CI.
 
 ### `aisyncer sync`
 
-Sync skills from `.my-skills/` to platform directories.
+Sync skills (and optionally rules) from `.my-ai/` to platform directories.
 
 ```bash
 # Dry-run (default) — shows what would happen, writes nothing
@@ -114,14 +130,17 @@ aisyncer sync --to claude
 aisyncer sync --to windsurf
 aisyncer sync --to claude,windsurf
 
+# Include rules
+aisyncer sync --to claude,windsurf --sync-rules
+
 # Actually write files
-aisyncer sync --to claude,windsurf --write
+aisyncer sync --to claude,windsurf --sync-rules --write
 
 # Custom output directory for Claude
 aisyncer sync --to claude --claude-dir ./custom-path --write
 ```
 
-Sync logic per skill:
+Sync logic per resource:
 
 | Condition | Action |
 |-----------|--------|
@@ -132,8 +151,8 @@ Sync logic per skill:
 The hash covers `name`, `description`, `allowedTools`, `metadata`, and `content` — so renaming a skill or changing its tags will trigger an overwrite, not just content edits.
 
 Output directories:
-- Claude: `.claude/skills/<id>/SKILL.md`
-- Windsurf: `.windsurf/skills/<id>/SKILL.md`
+- Claude: `.claude/skills/<id>/SKILL.md`, `.claude/rules/<id>/RULE.md`
+- Windsurf: `.windsurf/skills/<id>/SKILL.md`, `.windsurf/rules/<id>/RULE.md`
 
 ## Skill Format
 
@@ -188,42 +207,94 @@ You are a senior engineer performing a code review.
 | `metadata.version` | string | No | Semantic version |
 | `metadata.tags` | string[] | No | Tags for organization |
 
+## Rule Format
+
+Rules are `RULE.md` files — same YAML frontmatter + markdown body pattern as skills, but without `allowedTools`:
+
+```markdown
+---
+schemaVersion: 1
+id: code-style
+name: Code Style
+description: Enforce consistent code style conventions
+metadata:
+  version: 1.0.0
+  tags:
+    - style
+    - conventions
+---
+
+# Code Style
+
+Follow these code style conventions in all files.
+
+## Naming
+
+- Use camelCase for variables and functions
+- Use PascalCase for classes and types
+- Use UPPER_SNAKE_CASE for constants
+
+## Formatting
+
+- 2-space indentation
+- No trailing whitespace
+- Single quotes for strings
+```
+
+### Rule Schema Reference
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `schemaVersion` | `1` (literal) | Yes | Always `1` for now |
+| `id` | string | Yes | Lowercase alphanumeric + hyphens |
+| `name` | string | Yes | Human-readable name |
+| `description` | string | Yes | Brief description |
+| `content` | string | Yes | Markdown body (after frontmatter) |
+| `metadata.source` | string | No | Where this rule came from |
+| `metadata.version` | string | No | Semantic version |
+| `metadata.tags` | string[] | No | Tags for organization |
+
 ## Directory Structure
 
 ```
 your-project/
-  .my-skills/              ← You manage this (canonical source)
+  .my-ai/              ← You manage this (canonical source)
     skills/
       code-review/
         SKILL.md
       commit-style/
         SKILL.md
+    rules/
+      code-style/
+        RULE.md
 
   .claude/                 ← Generated by `aisyncer sync` (do not edit)
     skills/
       code-review/
         SKILL.md
-      commit-style/
-        SKILL.md
+    rules/
+      code-style/
+        RULE.md
 
   .windsurf/               ← Generated by `aisyncer sync` (do not edit)
     skills/
       code-review/
         SKILL.md
-      commit-style/
-        SKILL.md
+    rules/
+      code-style/
+        RULE.md
 ```
 
 ## Design Principles
 
 ### Single source of truth
 
-`.my-skills/` is the only directory you should ever edit. Everything else is derived output. This avoids the classic "which copy is the latest?" problem.
+`.my-ai/` is the only directory you should ever edit. Everything else is derived output. This avoids the classic "which copy is the latest?" problem.
 
 ### One-way sync only
 
-Sync always flows from `.my-skills/` → platform directories. We intentionally don't support:
-- Reading from `.claude/` back into `.my-skills/`
+Sync always flows from `.my-ai/` → platform directories. We intentionally don't support:
+- Reading from `.claude/` back into `.my-ai/`
 - Merging changes from platform directories
 - Two-way sync
 
@@ -237,42 +308,41 @@ This keeps the mental model simple: edit in one place, sync everywhere.
 
 - Skills are just markdown files with YAML frontmatter — readable and editable by humans
 - No database, no config server, no proprietary format
-- If you stop using aisyncer, your `.my-skills/` directory is still perfectly usable
+- If you stop using aisyncer, your `.my-ai/` directory is still perfectly usable
 
 ### Semantic hash for conflict detection
 
-The sync hash covers all meaningful fields (name, description, allowedTools, metadata, content) — not just the markdown body. Changing a skill's description or tags will correctly trigger an overwrite on the next sync.
+The sync hash covers all meaningful fields (name, description, allowedTools, metadata, content for skills; name, description, metadata, content for rules) — not just the markdown body. Changing a resource's description or tags will correctly trigger an overwrite on the next sync.
 
-## Sharing Skills via GitHub
+## Sharing via GitHub
 
-You can maintain a shared skills repository for your team:
+You can maintain a shared repository of skills and rules for your team:
 
 ```
-my-org/ai-skills/
+my-org/ai-config/
   skills/
     code-review/
       SKILL.md
     api-design/
       SKILL.md
-    testing-strategy/
-      SKILL.md
+  rules/                     ← optional
+    code-style/
+      RULE.md
 ```
 
-Team members pull skills with:
+Team members pull everything with:
 
 ```bash
-aisyncer init --from github:my-org/ai-skills
+aisyncer init --from github:my-org/ai-config
 ```
 
-This fetches skills via the GitHub API (no clone needed) and writes them to `.my-skills/skills/`. From there, `aisyncer sync` distributes them to each platform.
+This fetches skills and rules via the GitHub API (no clone needed) and writes them to `.my-ai/`. From there, `aisyncer sync` distributes them to each platform.
 
 ## Roadmap
 
-This is v0.1 — skills only. Here's what's planned:
+### v0.2 — Rules ✓
 
-### v0.2 — Rules
-
-Sync rule files (`.claude/rules/`, `.windsurf/rules/`) with the same one-way model.
+Sync rule files (`.claude/rules/`, `.windsurf/rules/`) with the same one-way model. Use `--with-rules` and `--sync-rules` flags.
 
 ### v0.3 — Memory
 

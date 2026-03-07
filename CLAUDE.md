@@ -11,7 +11,7 @@ This file provides canonical guidance for AI coding tools working with this repo
 
 - Never commit directly to `main`; use a topic branch and open a PR.
 - Before commit, run `npm run typecheck && npm run lint && npm test`.
-- If `package.json` changes, update `package-lock.json` in the same PR.
+- If `package.json` changes in a lockfile-affecting way (for example `name`, `version`, dependencies, overrides, or workspaces), update `package-lock.json` in the same PR.
 - Keep `README.md` and `README.zh-CN.md` synchronized when either changes.
 - Do not write rules to `.claude/rules`; Claude project instructions belong in `CLAUDE.md`.
 

@@ -14,7 +14,7 @@ Read order:
    - `npm run typecheck`
    - `npm run lint`
    - `npm test`
-3. If `package.json` changes, `package-lock.json` must be updated in the same PR.
+3. If `package.json` changes in a lockfile-affecting way (for example `name`, `version`, dependencies, overrides, or workspaces), `package-lock.json` must be updated in the same PR.
 4. If either `README.md` or `README.zh-CN.md` changes, both must be updated in the same PR.
 5. Respect platform-native path rules:
    - Claude: sync skills only (`.claude/skills/...`), do not create `.claude/rules`.

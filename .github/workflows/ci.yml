@@ -51,8 +51,11 @@ jobs:
 
           if echo "$CHANGED" | grep -qx "package.json"; then
             if ! echo "$CHANGED" | grep -qx "package-lock.json"; then
-              echo "package-lock.json must be updated when package.json changes."
-              exit 1
+              LOCKFILE_REQUIRED="$(node .github/scripts/check-lockfile-needed.mjs "origin/$BASE" "HEAD")"
+              if [[ "$LOCKFILE_REQUIRED" == "true" ]]; then
+                echo "package-lock.json must be updated when package.json changes affect lockfile-managed fields."
+                exit 1
+              fi
             fi
           fi
 

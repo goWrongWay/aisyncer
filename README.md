@@ -5,14 +5,15 @@
 [![npm version](https://img.shields.io/npm/v/aisyncer.svg)](https://www.npmjs.com/package/aisyncer)
 [npm package](https://www.npmjs.com/package/aisyncer)
 
-CLI tool for syncing AI skills, rules, and configs across Claude and Windsurf.
+CLI tool for syncing AI skills, rules, and configs across Claude, Codex, and Windsurf.
 
-**The problem:** You use Claude Code and Windsurf (maybe more tools tomorrow). Each has its own skills directory, its own format quirks, its own way of doing things. You end up copy-pasting markdown files between `.claude/skills/` and `.windsurf/skills/`, hoping you didn't forget one. It gets old fast.
+**The problem:** You use Claude Code, Codex, and Windsurf (maybe more tools tomorrow). Each has its own skills directory, its own format quirks, its own way of doing things. You end up copy-pasting markdown files between platform folders, hoping you didn't forget one. It gets old fast.
 
 **The solution:** Maintain one canonical source (`.my-ai/`), sync everywhere.
 
 ```
 .my-ai/skills/  ──→  .claude/skills/
+                    ──→  .agents/skills/
                     ──→  .windsurf/skills/
 
 .my-ai/rules/   ──→  .windsurf/rules/<id>.md
@@ -50,14 +51,14 @@ aisyncer validate
 aisyncer validate --with-rules
 
 # 3. Preview — see what sync would do (dry-run, no writes)
-aisyncer sync --to claude,windsurf
-aisyncer sync --to claude,windsurf --sync-rules
+aisyncer sync --to claude,codex,windsurf
+aisyncer sync --to claude,codex,windsurf --sync-rules
 
 # 4. Apply — actually write to platform directories
-aisyncer sync --to claude,windsurf --sync-rules --write
+aisyncer sync --to claude,codex,windsurf --sync-rules --write
 ```
 
-> `--sync-rules` writes rules to Windsurf only. Claude targets print a skip note for rules.
+> `--sync-rules` writes rules to Windsurf only. Claude and Codex targets print a skip note for rules.
 
 That's it. Skills and rules, four commands, no config files, no databases.
 
@@ -131,22 +132,27 @@ Sync skills (and optionally rules) from `.my-ai/` to platform directories.
 ```bash
 # Dry-run (default) — shows what would happen, writes nothing
 aisyncer sync --to claude
+aisyncer sync --to codex
 aisyncer sync --to windsurf
-aisyncer sync --to claude,windsurf
+aisyncer sync --to claude,codex,windsurf
 
 # Include rules
-aisyncer sync --to claude,windsurf --sync-rules
+aisyncer sync --to claude,codex,windsurf --sync-rules
 
 # Actually write files
-aisyncer sync --to claude,windsurf --sync-rules --write
+aisyncer sync --to claude,codex,windsurf --sync-rules --write
 
 # Custom output directory for Claude
 aisyncer sync --to claude --claude-dir ./custom-path --write
+
+# Custom output directory for Codex
+aisyncer sync --to codex --codex-dir ./custom-codex --write
 ```
 
 Rules sync behavior:
 - Windsurf: writes to `.windsurf/rules/<id>.md`
 - Claude: skipped (Claude uses `CLAUDE.md`, not `.claude/rules/`)
+- Codex: skipped (Codex has no rules directory; use `AGENTS.md` for project instructions)
 
 Sync logic per resource:
 
@@ -160,6 +166,7 @@ The hash covers `name`, `description`, `allowedTools`, `metadata`, and `content`
 
 Output directories:
 - Claude: `.claude/skills/<id>/SKILL.md` (rules are managed via `CLAUDE.md`)
+- Codex: `.agents/skills/<id>/SKILL.md` by default; you can also target user/admin locations with `--codex-dir` such as `~/.agents` or `/etc/codex`
 - Windsurf: `.windsurf/skills/<id>/SKILL.md`, `.windsurf/rules/<id>.md`
 
 ## Skill Format
@@ -290,6 +297,8 @@ your-project/
       code-style.md
 ```
 
+Codex scans `.agents/skills` from the current working directory up to the repository root. By default, `aisyncer` writes Codex skills to the local repository `.agents/skills/<id>/SKILL.md`. If you want user- or admin-scoped skills instead, pass `--codex-dir ~/.agents` or `--codex-dir /etc/codex`.
+
 ## Design Principles
 
 ### Single source of truth
@@ -341,7 +350,7 @@ Team members pull everything with:
 aisyncer init --from github:my-org/ai-config
 ```
 
-This fetches skills and rules via the GitHub API (no clone needed) and writes them to `.my-ai/`. From there, `aisyncer sync` distributes skills to Claude/Windsurf and rules to Windsurf.
+This fetches skills and rules via the GitHub API (no clone needed) and writes them to `.my-ai/`. From there, `aisyncer sync` distributes skills to Claude/Codex/Windsurf and rules to Windsurf.
 
 Live example repository:
 

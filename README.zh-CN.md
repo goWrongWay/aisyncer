@@ -5,11 +5,11 @@
 [![npm version](https://img.shields.io/npm/v/aisyncer.svg)](https://www.npmjs.com/package/aisyncer)
 [npm package](https://www.npmjs.com/package/aisyncer)
 
-用于在 Claude 和 Windsurf 之间同步 AI skills 与规则（rules）的 CLI 工具。
+用于在 Claude、Codex 和 Windsurf 之间同步 AI skills 与规则（rules）的 CLI 工具。
 
 ## 这个工具解决什么问题
 
-你可能同时在用 Claude Code 和 Windsurf。它们各自有自己的目录结构与约定，手工复制很容易漏文件或版本不一致。
+你可能同时在用 Claude Code、Codex 和 Windsurf。它们各自有自己的目录结构与约定，手工复制很容易漏文件或版本不一致。
 
 `aisyncer` 的做法是：
 
@@ -19,6 +19,7 @@
 
 ```text
 .my-ai/skills/  ──→  .claude/skills/
+                 ──→  .agents/skills/
                  ──→  .windsurf/skills/
 
 .my-ai/rules/   ──→  .windsurf/rules/<id>.md
@@ -51,14 +52,14 @@ aisyncer validate
 aisyncer validate --with-rules
 
 # 3) 预览同步（默认 dry-run）
-aisyncer sync --to claude,windsurf
-aisyncer sync --to claude,windsurf --sync-rules
+aisyncer sync --to claude,codex,windsurf
+aisyncer sync --to claude,codex,windsurf --sync-rules
 
 # 4) 实际写入
-aisyncer sync --to claude,windsurf --sync-rules --write
+aisyncer sync --to claude,codex,windsurf --sync-rules --write
 ```
 
-> `--sync-rules` 只会同步到 Windsurf。Claude 目标会显示 skip 提示。
+> `--sync-rules` 只会同步到 Windsurf。Claude 和 Codex 目标会显示 skip 提示。
 
 ## 命令说明
 
@@ -124,27 +125,33 @@ aisyncer validate --with-rules
 ```bash
 # dry-run
 aisyncer sync --to claude
+aisyncer sync --to codex
 aisyncer sync --to windsurf
-aisyncer sync --to claude,windsurf
+aisyncer sync --to claude,codex,windsurf
 
 # 带 rules（仅 Windsurf）
-aisyncer sync --to claude,windsurf --sync-rules
+aisyncer sync --to claude,codex,windsurf --sync-rules
 
 # 实际写入
-aisyncer sync --to claude,windsurf --sync-rules --write
+aisyncer sync --to claude,codex,windsurf --sync-rules --write
 
 # 自定义 Claude 输出目录
 aisyncer sync --to claude --claude-dir ./custom-path --write
+
+# 自定义 Codex 输出目录
+aisyncer sync --to codex --codex-dir ./custom-codex --write
 ```
 
 rules 同步行为：
 
 - Windsurf：写入 `.windsurf/rules/<id>.md`
 - Claude：跳过（Claude 使用 `CLAUDE.md`）
+- Codex：跳过（Codex 没有 rules 目录，项目指令请使用 `AGENTS.md`）
 
 输出目录：
 
 - Claude：`.claude/skills/<id>/SKILL.md`
+- Codex：默认写入 `.agents/skills/<id>/SKILL.md`；如需用户级或管理员级位置，可用 `--codex-dir ~/.agents` 或 `--codex-dir /etc/codex`
 - Windsurf：`.windsurf/skills/<id>/SKILL.md` 与 `.windsurf/rules/<id>.md`
 
 ## Skill / Rule 文件格式
@@ -182,6 +189,8 @@ your-project/
       code-style.md
 ```
 
+Codex 会从当前工作目录一路向上扫描到仓库根目录的 `.agents/skills`。`aisyncer` 默认写入当前仓库的 `.agents/skills/<id>/SKILL.md`；如果你想写到用户级或管理员级位置，可以传 `--codex-dir ~/.agents` 或 `--codex-dir /etc/codex`。
+
 ## 设计原则
 
 ### 单一事实来源
@@ -208,7 +217,7 @@ your-project/
 aisyncer init --from github:my-org/ai-config
 ```
 
-工具会通过 GitHub API 拉取内容到 `.my-ai/`，再由 `sync` 分发到各平台。
+工具会通过 GitHub API 拉取内容到 `.my-ai/`，再由 `sync` 分发到 Claude、Codex、Windsurf，对 rules 仅分发到 Windsurf。
 
 可直接参考的示例仓库：
 

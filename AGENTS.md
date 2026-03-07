@@ -18,6 +18,7 @@ Read order:
 4. If either `README.md` or `README.zh-CN.md` changes, both must be updated in the same PR.
 5. Respect platform-native path rules:
    - Claude: sync skills only (`.claude/skills/...`), do not create `.claude/rules`.
+   - Codex: sync skills only (`.agents/skills/...`), do not create a rules directory; use `AGENTS.md` for project instructions.
    - Windsurf: sync skills and flat rule files (`.windsurf/rules/<id>.md`).
 6. PR title must follow conventional format:
    - `<type>(<scope>): <Summary>`

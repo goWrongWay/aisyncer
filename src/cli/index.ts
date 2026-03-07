@@ -9,7 +9,7 @@ const program = new Command();
 
 program
   .name("aisyncer")
-  .description("CLI tool for syncing AI skills, rules, and configs across Claude and Windsurf")
+  .description("CLI tool for syncing AI skills, rules, and configs across Claude, Codex, and Windsurf")
   .version("0.2.1");
 
 program
@@ -28,9 +28,10 @@ program
 program
   .command("sync")
   .description("Sync skills to platform directories and rules to Windsurf")
-  .requiredOption("--to <platforms>", "Target platforms: claude, windsurf, or claude,windsurf")
+  .requiredOption("--to <platforms>", "Target platforms: claude, codex, windsurf, or a comma-separated combination")
   .option("--write", "Actually write files (default is dry-run)")
   .option("--claude-dir <dir>", "Override Claude output directory (default: .claude)")
+  .option("--codex-dir <dir>", "Override Codex output directory (default: .agents)")
   .option("--sync-rules", "Also sync rules from .my-ai/rules to Windsurf (.windsurf/rules/*.md)")
   .action(syncCommand);
 

@@ -4,6 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { createAdapter } from "../src/adapters/base.js";
 import { createClaudeAdapter } from "../src/adapters/claude.js";
+import { createCodexAdapter } from "../src/adapters/codex.js";
 import { createWindsurfAdapter } from "../src/adapters/windsurf.js";
 import type { SkillSpec } from "../src/core/schema.js";
 import { skillConfig, ruleConfig } from "../src/core/schema.js";
@@ -111,6 +112,37 @@ describe("createClaudeAdapter", () => {
     expect(adapter.name).toBe("claude");
     adapter.writeResource(SAMPLE_SKILL, skillConfig);
     expect(fs.existsSync(path.join(tmpDir, "skills", SAMPLE_SKILL.id, "SKILL.md"))).toBe(true);
+  });
+});
+
+describe("createCodexAdapter", () => {
+  let tmpDir: string;
+  let originalCwd: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-test-"));
+    originalCwd = process.cwd();
+    process.chdir(tmpDir);
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("uses custom directory when provided", () => {
+    const adapter = createCodexAdapter(tmpDir);
+    expect(adapter.name).toBe("codex");
+    adapter.writeResource(SAMPLE_SKILL, skillConfig);
+    expect(fs.existsSync(path.join(tmpDir, "skills", SAMPLE_SKILL.id, "SKILL.md"))).toBe(true);
+  });
+
+  it("defaults to the repository .agents directory", () => {
+    const adapter = createCodexAdapter();
+
+    adapter.writeResource(SAMPLE_SKILL, skillConfig);
+
+    expect(fs.existsSync(path.join(tmpDir, ".agents", "skills", SAMPLE_SKILL.id, "SKILL.md"))).toBe(true);
   });
 });
 

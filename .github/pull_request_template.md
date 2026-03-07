@@ -20,7 +20,7 @@
 ## Collaboration Checklist
 
 - [ ] I did not commit directly to `main`.
-- [ ] If `package.json` changed, `package-lock.json` is included.
+- [ ] If `package.json` changed in a lockfile-affecting way, `package-lock.json` is included.
 - [ ] If one README language changed, both `README.md` and `README.zh-CN.md` were updated.
 - [ ] Platform path behavior is preserved (`.windsurf/rules/<id>.md`, no `.claude/rules`).
 

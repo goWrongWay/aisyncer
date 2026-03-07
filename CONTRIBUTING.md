@@ -51,7 +51,7 @@ npm test
    - `CLAUDE.md`
    - `docs/ai-architecture-guardrails.md`
 2. One concern per PR. Do not mix unrelated refactors/features/docs.
-3. If `package.json` changes, include `package-lock.json` in the same PR.
+3. If `package.json` changes in a lockfile-affecting way (for example `name`, `version`, dependencies, overrides, or workspaces), include `package-lock.json` in the same PR.
 4. Keep bilingual docs synchronized:
    - If `README.md` changes, update `README.zh-CN.md` in the same PR.
    - If `README.zh-CN.md` changes, update `README.md` in the same PR.

@@ -1,5 +1,6 @@
 import path from "node:path";
 import { createClaudeAdapter } from "../../adapters/claude.js";
+import { createCodexAdapter } from "../../adapters/codex.js";
 import { createWindsurfAdapter } from "../../adapters/windsurf.js";
 import type { PlatformAdapter } from "../../adapters/base.js";
 import { loadCanonicalSkills, planSync, executeSync } from "../../core/sync.js";
@@ -10,25 +11,33 @@ interface SyncOptions {
   to: string;
   write?: boolean;
   claudeDir?: string;
+  codexDir?: string;
   syncRules?: boolean;
 }
 
-const SUPPORTED_PLATFORMS = ["claude", "windsurf"];
-const RULE_SYNC_PLATFORMS = new Set(["windsurf"]);
+type PlatformName = "claude" | "codex" | "windsurf";
+type RuleUnsupportedPlatform = Exclude<PlatformName, "windsurf">;
+
+const PLATFORM_ADAPTERS = {
+  claude: (options: SyncOptions) => createClaudeAdapter(options.claudeDir),
+  codex: (options: SyncOptions) => createCodexAdapter(options.codexDir),
+  windsurf: () => createWindsurfAdapter(),
+} satisfies Record<PlatformName, (options: SyncOptions) => PlatformAdapter>;
+
+const SUPPORTED_PLATFORMS = Object.keys(PLATFORM_ADAPTERS) as PlatformName[];
+const RULE_SYNC_PLATFORMS = new Set<PlatformName>(["windsurf"]);
+const RULE_SKIP_NOTES = {
+  claude: "Claude uses CLAUDE.md for project instructions.",
+  codex: "Codex has no rules sync target. Use AGENTS.md for project instructions.",
+} satisfies Record<RuleUnsupportedPlatform, string>;
 
 export async function syncCommand(options: SyncOptions): Promise<void> {
   if (!options.to) {
-    console.error("Error: --to is required. Use --to claude, --to windsurf, or --to claude,windsurf");
+    console.error("Error: --to is required. Use --to claude, --to codex, --to windsurf, or a comma-separated combination");
     process.exit(1);
   }
 
-  const platforms = options.to.split(",").map((p) => p.trim());
-  for (const p of platforms) {
-    if (!SUPPORTED_PLATFORMS.includes(p)) {
-      console.error(`Error: Unknown platform "${p}". Supported: ${SUPPORTED_PLATFORMS.join(", ")}`);
-      process.exit(1);
-    }
-  }
+  const platforms = parsePlatforms(options.to);
 
   const skillsDir = path.resolve(".my-ai", "skills");
   const skills = loadCanonicalSkills(skillsDir);
@@ -50,7 +59,11 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
 
   if (options.syncRules && rules.length > 0 && skills.length === 0 && !hasRuleTarget) {
     console.log("No supported rules target selected. Rules sync currently targets windsurf (.windsurf/rules/*.md) only.");
-    console.log("Claude uses CLAUDE.md for project instructions.");
+    for (const platform of platforms) {
+      if (isRuleUnsupportedPlatform(platform)) {
+        console.log(ruleSkipNote(platform));
+      }
+    }
     return;
   }
 
@@ -81,8 +94,8 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
 
     // Sync rules
     if (rules.length > 0) {
-      if (!RULE_SYNC_PLATFORMS.has(platform)) {
-        console.log(`Skipping rules for ${adapter.name}: use CLAUDE.md for project instructions.`);
+      if (isRuleUnsupportedPlatform(platform)) {
+        console.log(`Skipping rules for ${adapter.name}: ${ruleSkipNote(platform)}`);
         console.log();
         continue;
       }
@@ -110,15 +123,35 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
   }
 }
 
-function resolveAdapter(platform: string, options: SyncOptions): PlatformAdapter {
-  switch (platform) {
-    case "claude":
-      return createClaudeAdapter(options.claudeDir);
-    case "windsurf":
-      return createWindsurfAdapter();
-    default:
-      throw new Error(`Unknown platform: ${platform}`);
-  }
+function isPlatformName(platform: string): platform is PlatformName {
+  return platform in PLATFORM_ADAPTERS;
+}
+
+function isRuleUnsupportedPlatform(platform: PlatformName): platform is RuleUnsupportedPlatform {
+  return !RULE_SYNC_PLATFORMS.has(platform);
+}
+
+function parsePlatforms(value: string): PlatformName[] {
+  return value
+    .split(",")
+    .map((platform) => platform.trim())
+    .filter((platform) => platform.length > 0)
+    .map((platform) => {
+      if (!isPlatformName(platform)) {
+        console.error(`Error: Unknown platform "${platform}". Supported: ${SUPPORTED_PLATFORMS.join(", ")}`);
+        process.exit(1);
+      }
+
+      return platform;
+    });
+}
+
+function resolveAdapter(platform: PlatformName, options: SyncOptions): PlatformAdapter {
+  return PLATFORM_ADAPTERS[platform](options);
+}
+
+function ruleSkipNote(platform: RuleUnsupportedPlatform): string {
+  return RULE_SKIP_NOTES[platform];
 }
 
 function actionLabel(action: string): string {

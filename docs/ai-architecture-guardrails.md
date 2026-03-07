@@ -55,7 +55,7 @@ Review your solution as a strict architect:
 
 - Changes follow existing architecture conventions from `CLAUDE.md`.
 - Existing tests pass.
-- If `package.json` changed, `package-lock.json` is included.
+- If `package.json` changed in a lockfile-affecting way (for example `name`, `version`, dependencies, overrides, or workspaces), `package-lock.json` is included.
 - If one README language changed, the other was synchronized.
 - Platform path behavior remains correct:
   - Claude rules are not written to `.claude/rules`
